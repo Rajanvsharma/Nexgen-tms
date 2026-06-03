@@ -1,0 +1,157 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    --brand: #1d4ed8;
+    --brand-ink: #1e40af;
+    --brand-soft: #eff6ff;
+    --ink: #15202b;
+    --ink-2: #475569;
+    --ink-3: #94a3b8;
+    --line: #e2e8f0;
+    --line-2: #cbd5e1;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --surface-3: #f1f5f9;
+  }
+
+  body {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--surface-2);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+/* Skeleton */
+.sk {
+  background: linear-gradient(90deg, #eef2f6 25%, #e3e9f0 37%, #eef2f6 63%);
+  background-size: 400% 100%;
+  animation: skl 1.2s ease infinite;
+  border-radius: 6px;
+}
+@keyframes skl {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pill.np::before { display: none; }
+
+/* Confidence bar */
+.confbar {
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 4px;
+  overflow: hidden;
+  width: 70px;
+  display: inline-block;
+}
+.confbar i {
+  display: block;
+  height: 100%;
+  background: #15803d;
+}
+.confbar.mid i { background: #b45309; }
+.confbar.low i { background: #b91c1c; }
+
+/* AI chip */
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand-ink);
+  background: var(--brand-soft);
+  border: 1px solid #dbe5ff;
+  border-radius: 20px;
+  padding: 3px 9px;
+}
+
+/* Callout */
+.callout {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  background: var(--brand-soft);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.callout.warn { border-left-color: #b45309; background: #fef6e7; }
+.callout.danger { border-left-color: #b91c1c; background: #fef2f2; }
+.callout.ok { border-left-color: #15803d; background: #ecfdf3; }
+
+/* Workflow nodes */
+.flownode {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px 14px;
+  background: #fff;
+}
+.flownode.trigger { border-left: 4px solid var(--brand); }
+.flownode.cond { border-left: 4px solid #b45309; }
+.flownode.action { border-left: 4px solid #15803d; }
+.ntype {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.flownode.trigger .ntype { color: var(--brand); }
+.flownode.cond .ntype { color: #b45309; }
+.flownode.action .ntype { color: #15803d; }
+
+/* Wizard steps */
+.wsteps { display: flex; align-items: center; margin-bottom: 22px; }
+.wstep { display: flex; align-items: center; gap: 9px; color: var(--ink-3); }
+.wstep .num { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line-2); display: grid; place-items: center; font-weight: 700; font-size: 12px; background: #fff; }
+.wstep.done { color: #15803d; cursor: pointer; }
+.wstep.done .num { border-color: #15803d; background: #ecfdf3; color: #15803d; }
+.wstep.current { color: var(--brand-ink); }
+.wstep.current .num { border-color: var(--brand); background: var(--brand); color: #fff; }
+.wline { flex: 1; height: 2px; background: var(--line); margin: 0 12px; min-width: 18px; }
+.wline.done { background: #15803d; }
+
+/* Score bars */
+.scorebar { display: flex; align-items: center; gap: 8px; }
+.scorebar .track { flex: 1; height: 7px; background: var(--surface-3); border-radius: 5px; overflow: hidden; }
+.scorebar .track i { display: block; height: 100%; }

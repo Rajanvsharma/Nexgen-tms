@@ -1,0 +1,12 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "npx prisma migrate deploy && node src/app.js"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[environments.production.variables]
+PORT = "4000"
+NODE_ENV = "production"

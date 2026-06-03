@@ -1,0 +1,457 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  DISPATCHER
+  ACCOUNTING
+  COMPLIANCE
+}
+
+enum QuoteStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CONVERTED
+}
+
+enum LoadStatus {
+  CREATED
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  INVOICED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum PaymentStatus {
+  PENDING
+  SCHEDULED
+  PAID
+  CANCELLED
+}
+
+enum CarrierStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum EmailLogStatus {
+  PENDING
+  PARSED
+  QUOTE_CREATED
+  SKIPPED
+  FAILED
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  password          String
+  firstName         String
+  lastName          String
+  role              Role               @default(DISPATCHER)
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  refreshTokens     RefreshToken[]
+  announcementsRead AnnouncementRead[]
+  announcements     Announcement[]
+  customers         Customer[]
+  quotes            Quote[]
+  loads             Load[]
+  emailConfigs      EmailConfig[]
+  notes             Note[]
+  auditLogs         AuditLog[]
+  documents         Document[]
+  ocrLogs           OcrLog[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ─── Announcements ────────────────────────────────────────────────────────────
+
+model Announcement {
+  id        String             @id @default(cuid())
+  title     String
+  body      String
+  postedBy  String
+  poster    User               @relation(fields: [postedBy], references: [id])
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  reads     AnnouncementRead[]
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+}
+
+// ─── Customers ────────────────────────────────────────────────────────────────
+
+model Customer {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  address      String?
+  city         String?
+  state        String?
+  zipCode      String?
+  creditTerms  Int      @default(30)
+  notes        String?
+  isActive     Boolean  @default(true)
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  quotes       Quote[]
+  loads        Load[]
+  invoices     Invoice[]
+  noteEntries  Note[]
+}
+
+// ─── Carriers ─────────────────────────────────────────────────────────────────
+
+model Carrier {
+  id                String        @id @default(cuid())
+  name              String
+  mcNumber          String        @unique
+  dotNumber         String?
+  email             String?
+  phone             String?
+  address           String?
+  city              String?
+  state             String?
+  zipCode           String?
+  equipmentTypes    String[]
+  insuranceExpiry   DateTime?
+  authorityExpiry   DateTime?
+  w9OnFile          Boolean       @default(false)
+  status            CarrierStatus @default(ACTIVE)
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  lanes             CarrierLane[]
+  loads             Load[]
+  payments          CarrierPayment[]
+  tonuRecords       TonuRecord[]
+  performances      LoadPerformance[]
+  noteEntries       Note[]
+}
+
+model CarrierLane {
+  id          String   @id @default(cuid())
+  carrierId   String
+  carrier     Carrier  @relation(fields: [carrierId], references: [id], onDelete: Cascade)
+  origin      String
+  destination String
+  equipment   String?
+  rate        Float?
+  lastUsed    DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+// ─── Quotes ───────────────────────────────────────────────────────────────────
+
+model Quote {
+  id                  String      @id @default(cuid())
+  quoteNumber         String      @unique
+  customerId          String
+  customer            Customer    @relation(fields: [customerId], references: [id])
+  status              QuoteStatus @default(PENDING)
+  pickupCity          String
+  pickupState         String
+  deliveryCity        String
+  deliveryState       String
+  commodity           String?
+  weight              Float?
+  equipment           String
+  pickupDate          DateTime?
+  deliveryDate        DateTime?
+  rate                Float
+  specialInstructions String?
+  source              String?
+  createdById         String
+  createdBy           User        @relation(fields: [createdById], references: [id])
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  load                Load?
+}
+
+// ─── Loads ────────────────────────────────────────────────────────────────────
+
+model Load {
+  id                  String     @id @default(cuid())
+  loadNumber          String     @unique
+  quoteId             String?    @unique
+  quote               Quote?     @relation(fields: [quoteId], references: [id])
+  customerId          String
+  customer            Customer   @relation(fields: [customerId], references: [id])
+  carrierId           String?
+  carrier             Carrier?   @relation(fields: [carrierId], references: [id])
+  status              LoadStatus @default(CREATED)
+  pickupCity          String
+  pickupState         String
+  deliveryCity        String
+  deliveryState       String
+  commodity           String?
+  weight              Float?
+  equipment           String
+  pickupDate          DateTime?
+  deliveryDate        DateTime?
+  customerRate        Float
+  carrierRate         Float?
+  margin              Float?
+  specialInstructions String?
+  driverName          String?
+  driverPhone         String?
+  isDuplicate         Boolean    @default(false)
+  createdById         String
+  createdBy           User       @relation(fields: [createdById], references: [id])
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  invoice             Invoice?
+  payment             CarrierPayment?
+  performance         LoadPerformance?
+  tonuRecord          TonuRecord?
+  notes               Note[]
+  documents           Document[]
+  boardPostings       LoadBoardPosting[]
+}
+
+// ─── Accounting ───────────────────────────────────────────────────────────────
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  loadId        String        @unique
+  load          Load          @relation(fields: [loadId], references: [id])
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  amount              Float
+  status              InvoiceStatus    @default(DRAFT)
+  dueDate             DateTime?
+  paidDate            DateTime?
+  notes               String?
+  isFactored          Boolean          @default(false)
+  factoringCompanyId  String?
+  factoringCompany    FactoringCompany? @relation(fields: [factoringCompanyId], references: [id])
+  factoringFee        Float?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model CarrierPayment {
+  id          String        @id @default(cuid())
+  loadId      String        @unique
+  load        Load          @relation(fields: [loadId], references: [id])
+  carrierId   String
+  carrier     Carrier       @relation(fields: [carrierId], references: [id])
+  amount      Float
+  status      PaymentStatus @default(PENDING)
+  dueDate     DateTime?
+  paidDate    DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+// ─── Email Integration ────────────────────────────────────────────────────────
+
+model EmailConfig {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  host         String
+  port         Int       @default(993)
+  username     String
+  password     String
+  folder       String    @default("INBOX")
+  isActive     Boolean   @default(true)
+  lastChecked  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model EmailLog {
+  id          String         @id @default(cuid())
+  messageId   String         @unique
+  subject     String
+  fromEmail   String
+  fromName    String?
+  receivedAt  DateTime
+  bodyText    String
+  parsedData  Json?
+  status      EmailLogStatus @default(PENDING)
+  quoteId     String?
+  errorMsg    String?
+  createdAt   DateTime       @default(now())
+}
+
+// ─── Carrier Quality ──────────────────────────────────────────────────────────
+
+model LoadPerformance {
+  id                String   @id @default(cuid())
+  loadId            String   @unique
+  load              Load     @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  carrierId         String
+  carrier           Carrier  @relation(fields: [carrierId], references: [id])
+  scheduledPickup   DateTime?
+  actualPickup      DateTime?
+  scheduledDelivery DateTime?
+  actualDelivery    DateTime?
+  pickupOnTime      Boolean?
+  deliveryOnTime    Boolean?
+  hasDetention      Boolean  @default(false)
+  detentionHours    Float?
+  hasClaim          Boolean  @default(false)
+  claimAmount       Float?
+  rating            Int?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model TonuRecord {
+  id          String   @id @default(cuid())
+  carrierId   String
+  carrier     Carrier  @relation(fields: [carrierId], references: [id])
+  loadId      String?  @unique
+  load        Load?    @relation(fields: [loadId], references: [id])
+  date        DateTime @default(now())
+  amount      Float    @default(0)
+  reason      String?
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+// ─── Factoring ────────────────────────────────────────────────────────────────
+
+model FactoringCompany {
+  id           String    @id @default(cuid())
+  name         String
+  contactEmail String?
+  contactPhone String?
+  ratePercent  Float     @default(3.0)
+  notes        String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  invoices     Invoice[]
+}
+
+// ─── Communication / Notes ────────────────────────────────────────────────────
+
+model Note {
+  id         String    @id @default(cuid())
+  body       String
+  loadId     String?
+  load       Load?     @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  carrierId  String?
+  carrier    Carrier?  @relation(fields: [carrierId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id])
+  createdAt  DateTime  @default(now())
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entity     String
+  entityId   String?
+  detail     String?
+  ip         String?
+  createdAt  DateTime @default(now())
+}
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+
+model Document {
+  id         String   @id @default(cuid())
+  type       String
+  loadId     String?
+  load       Load?    @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  filename   String
+  createdById String
+  createdBy  User     @relation(fields: [createdById], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+// ─── Load Board Postings ──────────────────────────────────────────────────────
+
+model LoadBoardPosting {
+  id        String   @id @default(cuid())
+  loadId    String
+  load      Load     @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  board     String
+  postingId String?
+  status    String   @default("POSTED")
+  postedAt  DateTime @default(now())
+  removedAt DateTime?
+}
+
+// ─── Agent Logs ───────────────────────────────────────────────────────────────
+
+model AgentLog {
+  id          String   @id @default(cuid())
+  agentName   String
+  status      String   @default("RUNNING")
+  summary     String?
+  findings    Int      @default(0)
+  actions     Int      @default(0)
+  error       String?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+}
+
+// ─── OCR Upload Logs ──────────────────────────────────────────────────────────
+
+model OcrLog {
+  id          String   @id @default(cuid())
+  filename    String
+  parsedData  Json?
+  status      String   @default("PENDING")
+  quoteId     String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+}
