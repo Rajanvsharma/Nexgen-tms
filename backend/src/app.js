@@ -55,7 +55,15 @@ app.use('/api/ocr', ocrRoutes);
 app.use('/api/copilot', copilotRoutes);
 app.use('/api/ai', aiRoutes);
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
+
+// Self-ping every 14 min to prevent Render free tier sleep
+if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+  setInterval(() => {
+    const url = `${process.env.RENDER_EXTERNAL_URL}/api/health`;
+    require('https').get(url, () => {}).on('error', () => {});
+  }, 14 * 60 * 1000);
+}
 
 app.use((err, _req, res, _next) => {
   console.error(err);
