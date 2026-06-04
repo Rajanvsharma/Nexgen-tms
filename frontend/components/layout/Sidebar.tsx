@@ -46,6 +46,7 @@ const NAV: NavGroup[] = [
   {
     group: 'Operations',
     items: [
+      { id: 'capacity',  label: 'Capacity Hub',    icon: '⚡', href: '/capacity', tag: 'NEW' },
       { id: 'loads',     label: 'Loads',           icon: '▸', href: '/loads' },
       { id: 'dispatch',  label: 'Dispatch Board',  icon: '⊞', href: '/dispatch' },
       { id: 'loadboard', label: 'Load Boards',     icon: '↥', href: '/loadboard' },
@@ -237,6 +238,15 @@ export default function Sidebar() {
                         borderRadius: 4, padding: '1px 5px',
                         flexShrink: 0,
                       }}>AI</span>
+                    )}
+                    {/* NEW tag */}
+                    {item.tag === 'NEW' && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700,
+                        background: '#15803d', color: '#fff',
+                        borderRadius: 4, padding: '1px 5px',
+                        flexShrink: 0,
+                      }}>NEW</span>
                     )}
 
                     {/* Badge */}
