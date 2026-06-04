@@ -51,6 +51,7 @@ const NAV: NavGroup[] = [
   },
   {
     items: [
+      { id: 'console',       label: 'Console',       icon: '💬', href: '/console' },
       { id: 'announcements', label: 'Announcements', icon: '◎', href: '/announcements' },
       { id: 'users',         label: 'Org Management', icon: '◯', href: '/users', roles: ['ADMIN'] },
     ],

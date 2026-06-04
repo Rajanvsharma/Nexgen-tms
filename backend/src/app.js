@@ -21,6 +21,7 @@ const loadboardRoutes = require('./routes/loadboard.routes');
 const ocrRoutes = require('./routes/ocr.routes');
 const copilotRoutes = require('./routes/copilot.routes');
 const aiRoutes = require('./routes/ai.routes');
+const consoleRoutes = require('./routes/console.routes');
 const { startAgentScheduler } = require('./services/agents.service');
 
 const app = express();
@@ -54,6 +55,7 @@ app.use('/api/loadboard', loadboardRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/copilot', copilotRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/console', consoleRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
