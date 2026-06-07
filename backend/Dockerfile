@@ -2,20 +2,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy root package for workspace resolution
 COPY package.json ./
-COPY backend/package.json ./backend/
+RUN npm install
 
-# Install backend deps
-WORKDIR /app/backend
-RUN npm install --production
-
-# Copy backend source
-COPY backend/ ./
-
-# Generate Prisma client
+COPY prisma ./prisma
 RUN npx prisma generate
+
+COPY . .
 
 EXPOSE 4000
 
-CMD ["node", "src/app.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node src/app.js"]
