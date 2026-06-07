@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 const SAFE_SELECT = {
   id: true, email: true, firstName: true, lastName: true,
-  role: true, isActive: true, createdAt: true, updatedAt: true,
+  role: true, isActive: true, customerId: true, createdAt: true, updatedAt: true,
 };
 
 async function getUsers(_req, res) {
@@ -20,7 +20,7 @@ async function getUsers(_req, res) {
 
 async function createUser(req, res) {
   try {
-    const { email, password, firstName, lastName, role } = req.body;
+    const { email, password, firstName, lastName, role, customerId } = req.body;
     if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({ message: 'email, password, firstName, lastName are required' });
     }
@@ -29,10 +29,10 @@ async function createUser(req, res) {
     if (exists) return res.status(409).json({ message: 'Email already in use' });
 
     const hashed = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
-      data: { email, password: hashed, firstName, lastName, role: role || 'DISPATCHER' },
-      select: SAFE_SELECT,
-    });
+    const data = { email, password: hashed, firstName, lastName, role: role || 'DISPATCHER' };
+    if (customerId) data.customerId = customerId;
+
+    const user = await prisma.user.create({ data, select: SAFE_SELECT });
     res.status(201).json(user);
   } catch (err) {
     console.error('createUser error:', err);

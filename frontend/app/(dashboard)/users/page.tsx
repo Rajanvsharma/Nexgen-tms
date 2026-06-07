@@ -21,15 +21,18 @@ interface UserRow {
   createdAt: string;
 }
 
-const ROLES = ['ADMIN', 'DISPATCHER', 'ACCOUNTING', 'COMPLIANCE'];
+interface CustomerOption { id: string; name: string; }
+
+const ROLES = ['ADMIN', 'DISPATCHER', 'ACCOUNTING', 'COMPLIANCE', 'CUSTOMER'];
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: 'bg-purple-100 text-purple-700',
   DISPATCHER: 'bg-blue-100 text-blue-700',
   ACCOUNTING: 'bg-yellow-100 text-yellow-700',
   COMPLIANCE: 'bg-green-100 text-green-700',
+  CUSTOMER: 'bg-orange-100 text-orange-700',
 };
 
-const EMPTY_FORM = { firstName: '', lastName: '', email: '', password: '', role: 'DISPATCHER' };
+const EMPTY_FORM = { firstName: '', lastName: '', email: '', password: '', role: 'DISPATCHER', customerId: '' };
 
 export default function UsersPage() {
   const { isLoading } = useRequireAuth('ADMIN');
@@ -40,6 +43,7 @@ export default function UsersPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
 
   async function loadUsers() {
     try {
@@ -50,18 +54,21 @@ export default function UsersPage() {
     }
   }
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => {
+    loadUsers();
+    api.get('/customers').then(({ data }) => setCustomers(data.filter((c: CustomerOption & { isActive: boolean }) => c.isActive)));
+  }, []);
 
   function openCreate() {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM });
     setError('');
     setOpen(true);
   }
 
   function openEdit(u: UserRow) {
     setEditing(u);
-    setForm({ firstName: u.firstName, lastName: u.lastName, email: u.email, password: '', role: u.role });
+    setForm({ firstName: u.firstName, lastName: u.lastName, email: u.email, password: '', role: u.role, customerId: '' });
     setError('');
     setOpen(true);
   }
@@ -79,7 +86,9 @@ export default function UsersPage() {
         if (form.password) payload.password = form.password;
         await api.put(`/users/${editing.id}`, payload);
       } else {
-        await api.post('/users', form);
+        const payload = { ...form };
+        if (form.role !== 'CUSTOMER') delete (payload as Partial<typeof form>).customerId;
+        await api.post('/users', payload);
       }
       setOpen(false);
       await loadUsers();
@@ -149,13 +158,25 @@ export default function UsersPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Role</Label>
-                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v, customerId: '' })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {ROLES.map((r) => <SelectItem key={r} value={r}>{r}{r === 'CUSTOMER' ? ' (Shipper Portal)' : ''}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+                {form.role === 'CUSTOMER' && (
+                  <div className="space-y-1">
+                    <Label>Link to Customer Account *</Label>
+                    <Select value={form.customerId} onValueChange={(v) => setForm({ ...form, customerId: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select customer…" /></SelectTrigger>
+                      <SelectContent>
+                        {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-400">This user will see only their company's quotes and loads in the shipper portal.</p>
+                  </div>
+                )}
                 {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

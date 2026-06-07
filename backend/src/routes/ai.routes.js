@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getRateSuggestion, composeEmail, fraudScan, getInsights, getLoadSummary, optimizeMargin, getAgentLogs, triggerAgent } = require('../controllers/ai.controller');
+const { getRateSuggestion, composeEmail, fraudScan, getInsights, getLoadSummary, optimizeMargin, getAgentLogs, triggerAgent, negotiateRate } = require('../controllers/ai.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
 const { requireRole } = require('../middleware/role.middleware');
 
@@ -16,5 +16,8 @@ router.get('/margin-optimizer', requireRole('ADMIN', 'ACCOUNTING'), optimizeMarg
 // Agent management
 router.get('/agent-logs', getAgentLogs);
 router.post('/agents/:agentName/run', requireRole('ADMIN'), triggerAgent);
+
+// Voice negotiation
+router.post('/negotiate', negotiateRate);
 
 module.exports = router;

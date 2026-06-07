@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore, type Role } from '@/store/auth.store';
+import { useBrandingStore } from '@/store/branding.store';
 import api from '@/lib/api';
 
 interface NavItem {
@@ -27,7 +28,7 @@ const NAV: NavGroup[] = [
       { id: 'loads',     label: 'Loads',          icon: '▸', href: '/loads' },
       { id: 'capacity',  label: 'CarrierQ™',      icon: '⚡', href: '/capacity' },
       { id: 'quotes',    label: 'CRM',             icon: '◎', href: '/quotes' },
-      { id: 'customers', label: 'Address Book',   icon: '◉', href: '/customers' },
+      { id: 'customers', label: 'Customers',        icon: '◉', href: '/customers' },
       { id: 'dispatch',  label: 'Calendar',        icon: '▦', href: '/dispatch' },
       { id: 'email',     label: 'Email Marketing', icon: '✉', href: '/email' },
     ],
@@ -42,18 +43,21 @@ const NAV: NavGroup[] = [
   },
   {
     items: [
-      { id: 'carriers',    label: 'Carrier Network', icon: '◈', href: '/carriers' },
-      { id: 'compliance',  label: 'Compliance',      icon: '✓', href: '/compliance', roles: ['ADMIN', 'COMPLIANCE'] },
-      { id: 'ai-hub',      label: 'AI Hub',           icon: '✦', href: '/ai-hub', tag: 'AI' },
-      { id: 'workflows',   label: 'Automation',       icon: '⟳', href: '/workflows' },
+      { id: 'carriers',   label: 'Carrier Network', icon: '◈', href: '/carriers' },
+      { id: 'compliance', label: 'Compliance',      icon: '✓', href: '/compliance', roles: ['ADMIN', 'COMPLIANCE'] },
+      { id: 'ai-hub',     label: 'AI Hub',           icon: '✦', href: '/ai-hub',  tag: 'AI' },
+      { id: 'intake',     label: 'AI Intake',        icon: '⬡', href: '/intake',  tag: 'AI' },
+      { id: 'workflows',  label: 'Automation',       icon: '⟳', href: '/workflows' },
     ],
     divider: true,
   },
   {
     items: [
-      { id: 'console',       label: 'Console',       icon: '💬', href: '/console' },
-      { id: 'announcements', label: 'Announcements', icon: '◎', href: '/announcements' },
-      { id: 'users',         label: 'Org Management', icon: '◯', href: '/users', roles: ['ADMIN'] },
+      { id: 'console',       label: 'Console',        icon: '💬', href: '/console' },
+      { id: 'announcements', label: 'Announcements',  icon: '◎', href: '/announcements' },
+      { id: 'branding',      label: 'White Label',    icon: '🎨', href: '/branding',  roles: ['ADMIN'] },
+      { id: 'users',         label: 'Org Management', icon: '◯', href: '/users',     roles: ['ADMIN'] },
+      { id: 'settings',      label: 'Settings',       icon: '⚙', href: '/settings' },
     ],
   },
 ];
@@ -62,6 +66,10 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const { branding } = useBrandingStore();
+
+  const primary = branding.primaryColor;
+  const primaryBg = `${primary}cc`;
 
   async function handleLogout() {
     try { await api.post('/auth/logout'); } finally {
@@ -71,26 +79,54 @@ export default function Sidebar() {
   }
 
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : 'U';
+  // Company initial for fallback logo
+  const companyInitial = branding.companyName.charAt(0).toUpperCase();
 
   return (
     <aside style={{
-      width: 220,
+      width: 224,
       minHeight: '100vh',
-      background: '#0d1b2a',
+      background: branding.sidebarBg,
       display: 'flex',
       flexDirection: 'column',
       flexShrink: 0,
     }}>
 
       {/* ── Logo ── */}
-      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ padding: '16px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 800, color: '#fff' }}>N</div>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 16, color: '#fff', letterSpacing: '-0.3px', lineHeight: 1 }}>NexGen</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>TMS Platform</div>
-          </div>
+          {branding.logoData ? (
+            <img
+              src={branding.logoData}
+              alt={branding.companyName}
+              style={{ height: 36, maxWidth: 140, objectFit: 'contain', display: 'block' }}
+            />
+          ) : (
+            <>
+              <div style={{
+                width: 34, height: 34,
+                background: `linear-gradient(135deg, ${primary}, ${branding.darkColor})`,
+                borderRadius: 8, display: 'grid', placeItems: 'center',
+                fontSize: 16, fontWeight: 800, color: '#fff', flexShrink: 0,
+              }}>
+                {companyInitial}
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: '-0.3px', lineHeight: 1 }}>
+                  {branding.companyName}
+                </div>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginTop: 2 }}>
+                  {branding.tagline}
+                </div>
+              </div>
+            </>
+          )}
         </div>
+        {branding.logoData && (
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginTop: 8 }}>
+            {branding.tagline}
+          </div>
+        )}
       </div>
 
       {/* ── Nav ── */}
@@ -117,7 +153,7 @@ export default function Sidebar() {
                       fontWeight: isActive ? 600 : 400,
                       fontSize: 13.5,
                       textDecoration: 'none',
-                      background: isActive ? 'rgba(59,130,246,0.85)' : 'transparent',
+                      background: isActive ? primaryBg : 'transparent',
                       transition: 'all 0.12s',
                       position: 'relative',
                     }}
@@ -127,7 +163,7 @@ export default function Sidebar() {
                     <span style={{ width: 18, textAlign: 'center', fontSize: 14, opacity: isActive ? 1 : 0.7, flexShrink: 0 }}>{item.icon}</span>
                     <span style={{ flex: 1 }}>{item.label}</span>
                     {item.tag === 'AI' && (
-                      <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(59,130,246,0.3)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.4)', borderRadius: 4, padding: '1px 5px' }}>AI</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, background: `${primary}33`, color: primary, border: `1px solid ${primary}55`, borderRadius: 4, padding: '1px 5px' }}>AI</span>
                     )}
                   </Link>
                 );
@@ -144,7 +180,12 @@ export default function Sidebar() {
       {user && (
         <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: `linear-gradient(135deg,${primary},${branding.darkColor})`,
+              color: '#fff', display: 'grid', placeItems: 'center',
+              fontWeight: 700, fontSize: 12, flexShrink: 0,
+            }}>
               {initials}
             </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>

@@ -4,13 +4,18 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import CopilotChat from '@/components/layout/CopilotChat';
+import Toaster from '@/components/ui/Toaster';
 import { useAuthStore } from '@/store/auth.store';
+import { useBrandingStore } from '@/store/branding.store';
 import { useInitAuth } from '@/hooks/useAuth';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   useInitAuth();
   const { user, isLoading } = useAuthStore();
+  const { load: loadBranding } = useBrandingStore();
   const router = useRouter();
+
+  useEffect(() => { loadBranding(); }, []);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -35,6 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {children}
       </div>
       <CopilotChat />
+      <Toaster />
     </div>
   );
 }

@@ -22,6 +22,8 @@ const ocrRoutes = require('./routes/ocr.routes');
 const copilotRoutes = require('./routes/copilot.routes');
 const aiRoutes = require('./routes/ai.routes');
 const consoleRoutes = require('./routes/console.routes');
+const portalRoutes = require('./routes/portal.routes');
+const brandingRoutes = require('./routes/branding.routes');
 const { startAgentScheduler } = require('./services/agents.service');
 
 const app = express();
@@ -56,6 +58,8 @@ app.use('/api/ocr', ocrRoutes);
 app.use('/api/copilot', copilotRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/console', consoleRoutes);
+app.use('/api/portal', portalRoutes);
+app.use('/api/branding', brandingRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 

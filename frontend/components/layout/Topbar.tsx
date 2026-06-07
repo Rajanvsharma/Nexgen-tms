@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
+import { useBrandingStore } from '@/store/branding.store';
 import api from '@/lib/api';
 
 interface TopbarProps {
@@ -11,6 +12,8 @@ interface TopbarProps {
 export default function Topbar({ title }: TopbarProps) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const { branding } = useBrandingStore();
+  const primary = branding.primaryColor;
 
   async function handleLogout() {
     try { await api.post('/auth/logout'); } finally {
@@ -33,7 +36,7 @@ export default function Topbar({ title }: TopbarProps) {
     <header style={{ height: 56, background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 14, padding: '0 18px', flexShrink: 0 }}>
       {/* Command bar */}
       <div style={{ flex: 1, maxWidth: 560, display: 'flex', alignItems: 'center', gap: 8, background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 12px' }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#1d4ed8', flexShrink: 0 }} />
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: primary, flexShrink: 0 }} />
         <input
           onKeyDown={handleCmd}
           placeholder='Ask AI: "find carriers Chicago→Dallas reefer", "post load", "margin this week"…'
@@ -57,7 +60,7 @@ export default function Topbar({ title }: TopbarProps) {
       {user && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12, color: '#475569' }}>{user.firstName} {user.lastName}</span>
-          <span style={{ fontSize: 10, fontWeight: 700, background: '#eff6ff', color: '#1e40af', border: '1px solid #dbe5ff', borderRadius: 20, padding: '2px 8px' }}>{user.role}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, background: `${primary}18`, color: primary, border: `1px solid ${primary}33`, borderRadius: 20, padding: '2px 8px' }}>{user.role}</span>
           <button
             onClick={handleLogout}
             style={{ border: '1px solid #e2e8f0', background: '#fff', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#475569', cursor: 'pointer' }}

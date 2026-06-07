@@ -1,298 +1,348 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { PlusCircle, FileText, ChevronRight, ArrowRight } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
 import Topbar from '@/components/layout/Topbar';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import SlideOver from '@/components/ui/SlideOver';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import { toast } from '@/store/toast.store';
+import { useBrandingStore } from '@/store/branding.store';
 import { useAuthStore } from '@/store/auth.store';
 import api from '@/lib/api';
 
 interface Quote {
-  id: string;
-  quoteNumber: string;
+  id: string; quoteNumber: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CONVERTED';
-  pickupCity: string;
-  pickupState: string;
-  deliveryCity: string;
-  deliveryState: string;
-  equipment: string;
-  commodity: string | null;
-  weight: number | null;
-  pickupDate: string | null;
-  rate: number;
-  source: string | null;
+  pickupCity: string; pickupState: string;
+  deliveryCity: string; deliveryState: string;
+  commodity: string | null; weight: number | null; equipment: string;
+  pickupDate: string | null; deliveryDate: string | null;
+  rate: number; specialInstructions: string | null; source: string | null;
   customer: { id: string; name: string };
   createdBy: { firstName: string; lastName: string };
   createdAt: string;
 }
-
 interface Customer { id: string; name: string; }
 
-const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-700',
-  APPROVED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
-  CONVERTED: 'bg-blue-100 text-blue-700',
-};
+const STATUSES = ['PENDING','APPROVED','REJECTED','CONVERTED'];
+const EQUIPMENT = ['Dry Van','Reefer','Flatbed','Step Deck','RGN','Power Only','Box Truck'];
 
-const EQUIPMENT_OPTIONS = ['Dry Van', 'Reefer', 'Flatbed', 'Step Deck', 'RGN', 'Power Only', 'Box Truck'];
+const ST_STYLE: Record<string, { bg: string; color: string }> = {
+  PENDING:   { bg: '#fef9c3', color: '#a16207' },
+  APPROVED:  { bg: '#dcfce7', color: '#15803d' },
+  REJECTED:  { bg: '#fee2e2', color: '#b91c1c' },
+  CONVERTED: { bg: '#dbeafe', color: '#1d4ed8' },
+};
 
 const EMPTY = {
-  customerId: '', pickupCity: '', pickupState: '', deliveryCity: '', deliveryState: '',
-  commodity: '', weight: '', equipment: 'Dry Van', pickupDate: '', deliveryDate: '', rate: '', specialInstructions: '',
+  customerId:'', pickupCity:'', pickupState:'', deliveryCity:'', deliveryState:'',
+  commodity:'', weight:'', equipment:'Dry Van', pickupDate:'', deliveryDate:'',
+  rate:'', specialInstructions:'', source:'Manual',
 };
 
+function fmtDate(d: string | null) { return d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'; }
+
 export default function QuotesPage() {
+  const { branding } = useBrandingStore();
   const { user } = useAuthStore();
+  const primary = branding.primaryColor;
+
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const [slideOpen, setSlideOpen] = useState(false);
+  const [editing, setEditing] = useState<Quote | null>(null);
+  const [form, setForm] = useState<typeof EMPTY>({ ...EMPTY });
+  const [saving, setSaving] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState<Quote | null>(null);
   const [converting, setConverting] = useState<string | null>(null);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const [qRes, cRes] = await Promise.all([api.get('/quotes'), api.get('/customers')]);
-      setQuotes(qRes.data);
-      setCustomers(cRes.data.filter((c: Customer & { isActive: boolean }) => c.isActive));
-    } finally {
-      setLoading(false);
-    }
+      setQuotes(qRes.data); setCustomers(cRes.data);
+    } catch { toast.error('Failed to load quotes'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  function openCreate() { setEditing(null); setForm({ ...EMPTY }); setSlideOpen(true); }
+
+  function openEdit(q: Quote) {
+    setEditing(q);
+    setForm({
+      customerId: q.customer?.id || '',
+      pickupCity: q.pickupCity, pickupState: q.pickupState,
+      deliveryCity: q.deliveryCity, deliveryState: q.deliveryState,
+      commodity: q.commodity || '', weight: q.weight ? String(q.weight) : '',
+      equipment: q.equipment,
+      pickupDate: q.pickupDate ? q.pickupDate.slice(0,10) : '',
+      deliveryDate: q.deliveryDate ? q.deliveryDate.slice(0,10) : '',
+      rate: String(q.rate),
+      specialInstructions: q.specialInstructions || '',
+      source: q.source || 'Manual',
+    });
+    setSlideOpen(true);
   }
 
-  useEffect(() => { loadData(); }, []);
-
-  async function handleCreate() {
+  async function save() {
     if (!form.customerId || !form.pickupCity || !form.pickupState || !form.deliveryCity || !form.deliveryState || !form.equipment || !form.rate) {
-      setError('Customer, origin, destination, equipment, and rate are required');
-      return;
+      toast.error('Missing required fields'); return;
     }
     setSaving(true);
-    setError('');
     try {
-      await api.post('/quotes', {
-        ...form,
-        rate: parseFloat(form.rate),
-        weight: form.weight ? parseFloat(form.weight) : undefined,
-      });
-      setOpen(false);
-      setForm(EMPTY);
-      await loadData();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Failed to create quote');
-    } finally {
-      setSaving(false);
-    }
+      if (editing) {
+        await api.put(`/quotes/${editing.id}`, form);
+        toast.success('Quote updated');
+      } else {
+        await api.post('/quotes', form);
+        toast.success('Quote created');
+      }
+      setSlideOpen(false);
+      loadData();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error('Save failed', msg);
+    } finally { setSaving(false); }
   }
 
   async function updateStatus(id: string, status: string) {
-    await api.patch(`/quotes/${id}/status`, { status });
-    await loadData();
+    try {
+      await api.patch(`/quotes/${id}/status`, { status });
+      setQuotes(qs => qs.map(q => q.id === id ? { ...q, status: status as Quote['status'] } : q));
+      toast.success('Status updated');
+    } catch { toast.error('Failed to update status'); }
   }
 
-  async function convertToLoad(id: string) {
-    setConverting(id);
+  async function convertToLoad(q: Quote) {
+    setConverting(q.id);
     try {
-      await api.post(`/quotes/${id}/convert`);
-      await loadData();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      alert(msg || 'Failed to convert to load');
-    } finally {
-      setConverting(null);
+      await api.post(`/quotes/${q.id}/convert`);
+      toast.success('Converted to load!', q.quoteNumber);
+      loadData();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error('Conversion failed', msg);
+    } finally { setConverting(null); }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/quotes/${deleteTarget.id}`);
+      toast.success('Quote deleted', deleteTarget.quoteNumber);
+      setDeleteTarget(null);
+      loadData();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error('Delete failed', msg);
     }
   }
 
-  const isAdmin = user?.role === 'ADMIN';
-  const filtered = quotes.filter((q) => statusFilter === 'ALL' || q.status === statusFilter);
+  const counts = STATUSES.reduce((a, s) => ({ ...a, [s]: quotes.filter(q => q.status === s).length }), {} as Record<string,number>);
+  const filtered = quotes.filter(q => {
+    if (statusFilter !== 'ALL' && q.status !== statusFilter) return false;
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return q.quoteNumber.toLowerCase().includes(s) || q.customer?.name.toLowerCase().includes(s) ||
+      q.pickupCity.toLowerCase().includes(s) || q.deliveryCity.toLowerCase().includes(s);
+  });
 
   return (
-    <>
-      <Topbar title="Quotes" />
-      <main className="flex-1 overflow-auto p-6">
-        <div className="flex items-center justify-between mb-6">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafc' }}>
+      <Topbar title="CRM / Quotes" />
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header */}
+        <div style={{ padding: '16px 24px', background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           <div>
-            <h3 className="text-lg font-semibold text-gray-800">Quotation Management</h3>
-            <p className="text-sm text-gray-500">{quotes.length} total quote{quotes.length !== 1 ? 's' : ''}</p>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0f172a' }}>Quotation Management</h1>
+            <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>{quotes.length} total quotes</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Statuses</SelectItem>
-                {['PENDING', 'APPROVED', 'REJECTED', 'CONVERTED'].map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => { setForm(EMPTY); setError(''); }}>
-                  <PlusCircle className="h-4 w-4 mr-2" />New Quote
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader><DialogTitle>Create New Quote</DialogTitle></DialogHeader>
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                  <div className="space-y-1">
-                    <Label>Customer *</Label>
-                    <Select value={form.customerId} onValueChange={(v) => setForm({ ...form, customerId: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select customer…" /></SelectTrigger>
-                      <SelectContent>{customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label>Pickup City *</Label>
-                      <Input value={form.pickupCity} onChange={(e) => setForm({ ...form, pickupCity: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Pickup State *</Label>
-                      <Input value={form.pickupState} onChange={(e) => setForm({ ...form, pickupState: e.target.value })} maxLength={2} placeholder="TX" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label>Delivery City *</Label>
-                      <Input value={form.deliveryCity} onChange={(e) => setForm({ ...form, deliveryCity: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Delivery State *</Label>
-                      <Input value={form.deliveryState} onChange={(e) => setForm({ ...form, deliveryState: e.target.value })} maxLength={2} placeholder="CA" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <Label>Equipment *</Label>
-                      <Select value={form.equipment} onValueChange={(v) => setForm({ ...form, equipment: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{EQUIPMENT_OPTIONS.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Commodity</Label>
-                      <Input value={form.commodity} onChange={(e) => setForm({ ...form, commodity: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Weight (lbs)</Label>
-                      <Input type="number" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label>Pickup Date</Label>
-                      <Input type="date" value={form.pickupDate} onChange={(e) => setForm({ ...form, pickupDate: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Delivery Date</Label>
-                      <Input type="date" value={form.deliveryDate} onChange={(e) => setForm({ ...form, deliveryDate: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Rate ($) *</Label>
-                    <Input type="number" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} placeholder="2500" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Special Instructions</Label>
-                    <Input value={form.specialInstructions} onChange={(e) => setForm({ ...form, specialInstructions: e.target.value })} />
-                  </div>
-                  {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={handleCreate} disabled={saving}>{saving ? 'Creating…' : 'Create Quote'}</Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <div style={{ flex: 1 }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search quotes, customers…"
+            style={{ padding: '8px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, width: 240, outline: 'none' }} />
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, background: '#fff' }}>
+            <option value="ALL">All Statuses</option>
+            {STATUSES.map(s => <option key={s} value={s}>{s} ({counts[s]||0})</option>)}
+          </select>
+          <button onClick={openCreate} style={{ padding: '9px 18px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            + New Quote
+          </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Status pills */}
+        <div style={{ padding: '10px 24px', background: '#fff', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 8, overflowX: 'auto', flexShrink: 0 }}>
+          {['ALL', ...STATUSES].map(s => {
+            const st = ST_STYLE[s] || { bg: '#f1f5f9', color: '#475569' };
+            const count = s === 'ALL' ? quotes.length : counts[s] || 0;
+            const active = statusFilter === s;
+            return (
+              <button key={s} onClick={() => setStatusFilter(s)} style={{
+                padding: '5px 12px', borderRadius: 20, border: `1px solid ${active ? primary : '#e2e8f0'}`,
+                background: active ? primary : (s === 'ALL' ? '#fff' : st.bg),
+                color: active ? '#fff' : (s === 'ALL' ? '#475569' : st.color),
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+              }}>
+                {s === 'ALL' ? 'All' : s} <span style={{ opacity: 0.75 }}>({count})</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Table */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
           {loading ? (
-            <p className="p-6 text-sm text-gray-400 animate-pulse">Loading quotes…</p>
+            <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8' }}>Loading…</div>
           ) : filtered.length === 0 ? (
-            <div className="p-12 text-center">
-              <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-400 text-sm">No quotes found.</p>
+            <div style={{ textAlign: 'center', padding: 64, color: '#94a3b8' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No quotes found</div>
+              <button onClick={openCreate} style={{ padding: '10px 20px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ New Quote</button>
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {['Quote #', 'Customer', 'Route', 'Equipment', 'Rate', 'Pickup Date', 'Source', 'Status', 'Actions'].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  {['Quote #','Customer','Route','Equipment','Rate','Pickup','Source','Status','Actions'].map(h => (
+                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((q) => (
-                  <tr key={q.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-mono text-sm font-medium text-brand">{q.quoteNumber}</td>
-                    <td className="px-4 py-3 text-gray-800">{q.customer.name}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <span>{q.pickupCity}, {q.pickupState}</span>
-                        <ChevronRight className="h-3 w-3 text-gray-400" />
-                        <span>{q.deliveryCity}, {q.deliveryState}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{q.equipment}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">${q.rate.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-gray-500">{q.pickupDate ? new Date(q.pickupDate).toLocaleDateString() : '—'}</td>
-                    <td className="px-4 py-3">
-                      {q.source ? (
-                        <span className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">
-                          {q.source.startsWith('EMAIL:') ? 'Email' : q.source}
-                        </span>
-                      ) : (
-                        <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full">Manual</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[q.status]}`}>{q.status}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {isAdmin && q.status === 'PENDING' && (
-                          <>
-                            <button onClick={() => updateStatus(q.id, 'APPROVED')}
-                              className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors">
-                              Approve
-                            </button>
-                            <button onClick={() => updateStatus(q.id, 'REJECTED')}
-                              className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition-colors">
-                              Reject
-                            </button>
-                          </>
+              <tbody>
+                {filtered.map(q => {
+                  const st = ST_STYLE[q.status];
+                  return (
+                    <tr key={q.id} style={{ borderBottom: '1px solid #f1f5f9' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}>
+                      <td style={{ padding: '12px', fontWeight: 700, color: primary }}>{q.quoteNumber}</td>
+                      <td style={{ padding: '12px', fontWeight: 500, color: '#334155' }}>{q.customer?.name}</td>
+                      <td style={{ padding: '12px', color: '#64748b' }}>
+                        <span style={{ fontWeight: 500 }}>{q.pickupCity}, {q.pickupState}</span>
+                        <span style={{ color: '#cbd5e1', margin: '0 5px' }}>→</span>
+                        <span style={{ fontWeight: 500 }}>{q.deliveryCity}, {q.deliveryState}</span>
+                      </td>
+                      <td style={{ padding: '12px', color: '#64748b' }}>{q.equipment}</td>
+                      <td style={{ padding: '12px', fontWeight: 700, color: '#0f172a' }}>${q.rate.toLocaleString()}</td>
+                      <td style={{ padding: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(q.pickupDate)}</td>
+                      <td style={{ padding: '12px' }}>
+                        <span style={{ fontSize: 11, background: '#f1f5f9', color: '#64748b', borderRadius: 4, padding: '2px 8px' }}>{q.source || 'Manual'}</span>
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        {q.status === 'CONVERTED' ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, background: st.bg, color: st.color, borderRadius: 20, padding: '3px 10px' }}>CONVERTED</span>
+                        ) : (
+                          <select value={q.status} onChange={e => updateStatus(q.id, e.target.value)}
+                            style={{ padding: '3px 8px', borderRadius: 20, border: 'none', background: st.bg, color: st.color, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            {['PENDING','APPROVED','REJECTED'].map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
                         )}
-                        {q.status === 'APPROVED' && (
-                          <button
-                            onClick={() => convertToLoad(q.id)}
-                            disabled={converting === q.id}
-                            className="text-xs bg-brand text-white px-2 py-1 rounded hover:bg-brand-light transition-colors flex items-center gap-1 disabled:opacity-50"
-                          >
-                            <ArrowRight className="h-3 w-3" />
-                            {converting === q.id ? 'Converting…' : 'To Load'}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {(user?.role === 'ADMIN' || user?.role === 'DISPATCHER') && q.status !== 'CONVERTED' && (
+                            <button onClick={() => openEdit(q)} style={{ padding: '5px 10px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#475569', fontWeight: 600 }}>✏ Edit</button>
+                          )}
+                          {q.status === 'APPROVED' && (
+                            <button onClick={() => convertToLoad(q)} disabled={converting === q.id}
+                              style={{ padding: '5px 10px', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#1d4ed8', fontWeight: 600, opacity: converting === q.id ? 0.6 : 1 }}>
+                              {converting === q.id ? '…' : '→ Load'}
+                            </button>
+                          )}
+                          {q.status !== 'CONVERTED' && (
+                            <button onClick={() => setDeleteTarget(q)} style={{ padding: '5px 8px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#dc2626', fontWeight: 700 }}>✕</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
-      </main>
-    </>
+      </div>
+
+      {/* Edit/Create SlideOver */}
+      <SlideOver
+        open={slideOpen}
+        title={editing ? `Edit ${editing.quoteNumber}` : 'New Quote'}
+        subtitle={editing ? `${editing.customer?.name}` : 'Create a new quotation'}
+        onClose={() => setSlideOpen(false)}
+        footer={
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button onClick={() => setSlideOpen(false)} style={{ padding: '9px 20px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#475569' }}>Cancel</button>
+            <button onClick={save} disabled={saving} style={{ padding: '9px 22px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+              {saving ? 'Saving…' : editing ? 'Update Quote' : 'Create Quote'}
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <Sec title="Customer">
+            <FField label="Customer *">
+              <select value={form.customerId} onChange={e => setForm(f=>({...f,customerId:e.target.value}))} style={sl}>
+                <option value="">Select customer…</option>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </FField>
+          </Sec>
+          <Sec title="Route">
+            <G2><FField label="Pickup City *"><input value={form.pickupCity} onChange={e=>setForm(f=>({...f,pickupCity:e.target.value}))} style={ip} placeholder="Chicago" /></FField>
+            <FField label="State *"><input value={form.pickupState} onChange={e=>setForm(f=>({...f,pickupState:e.target.value}))} style={ip} placeholder="IL" maxLength={2} /></FField></G2>
+            <G2><FField label="Delivery City *"><input value={form.deliveryCity} onChange={e=>setForm(f=>({...f,deliveryCity:e.target.value}))} style={ip} placeholder="Dallas" /></FField>
+            <FField label="State *"><input value={form.deliveryState} onChange={e=>setForm(f=>({...f,deliveryState:e.target.value}))} style={ip} placeholder="TX" maxLength={2} /></FField></G2>
+          </Sec>
+          <Sec title="Freight">
+            <G2>
+              <FField label="Equipment *"><select value={form.equipment} onChange={e=>setForm(f=>({...f,equipment:e.target.value}))} style={sl}>{EQUIPMENT.map(e=><option key={e}>{e}</option>)}</select></FField>
+              <FField label="Commodity"><input value={form.commodity} onChange={e=>setForm(f=>({...f,commodity:e.target.value}))} style={ip} /></FField>
+            </G2>
+            <G2>
+              <FField label="Weight (lbs)"><input type="number" value={form.weight} onChange={e=>setForm(f=>({...f,weight:e.target.value}))} style={ip} /></FField>
+              <FField label="Rate ($) *"><input type="number" value={form.rate} onChange={e=>setForm(f=>({...f,rate:e.target.value}))} style={ip} /></FField>
+            </G2>
+          </Sec>
+          <Sec title="Dates">
+            <G2>
+              <FField label="Pickup Date"><input type="date" value={form.pickupDate} onChange={e=>setForm(f=>({...f,pickupDate:e.target.value}))} style={ip} /></FField>
+              <FField label="Delivery Date"><input type="date" value={form.deliveryDate} onChange={e=>setForm(f=>({...f,deliveryDate:e.target.value}))} style={ip} /></FField>
+            </G2>
+          </Sec>
+          <Sec title="Details">
+            <FField label="Source"><select value={form.source} onChange={e=>setForm(f=>({...f,source:e.target.value}))} style={sl}>
+              {['Manual','Email','Phone','Web','Portal'].map(s=><option key={s}>{s}</option>)}
+            </select></FField>
+            <FField label="Special Instructions"><textarea value={form.specialInstructions} onChange={e=>setForm(f=>({...f,specialInstructions:e.target.value}))} style={{...ip,height:64,resize:'vertical'}} /></FField>
+          </Sec>
+        </div>
+      </SlideOver>
+
+      {deleteTarget && (
+        <ConfirmModal
+          title={`Delete ${deleteTarget.quoteNumber}?`}
+          message={`Permanently delete this quote from ${deleteTarget.customer?.name}? This cannot be undone.`}
+          confirmLabel="Delete Quote" danger
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+    </div>
   );
 }
+
+function Sec({ title, children }: { title: string; children: React.ReactNode }) {
+  return <div><div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid #f1f5f9' }}>{title}</div><div style={{ display:'flex',flexDirection:'column',gap:10 }}>{children}</div></div>;
+}
+function G2({ children }: { children: React.ReactNode }) { return <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:10 }}>{children}</div>; }
+function FField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div><label style={{ display:'block',fontSize:11,fontWeight:700,color:'#475569',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.4px' }}>{label}</label>{children}</div>;
+}
+const ip: React.CSSProperties = { width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,outline:'none',boxSizing:'border-box' };
+const sl: React.CSSProperties = { ...ip,cursor:'pointer',background:'#fff' };

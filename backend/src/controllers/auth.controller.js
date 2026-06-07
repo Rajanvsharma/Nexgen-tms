@@ -22,13 +22,13 @@ async function login(req, res) {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: 'Invalid credentials' });
 
-    const accessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role });
+    const accessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role, customerId: user.customerId || null });
     const refreshToken = await generateRefreshToken(user.id);
 
     res.cookie('refreshToken', refreshToken, COOKIE_OPTS);
     res.json({
       accessToken,
-      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role },
+      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, customerId: user.customerId || null },
     });
   } catch (err) {
     console.error('login error:', err);
@@ -86,4 +86,34 @@ async function me(req, res) {
   }
 }
 
-module.exports = { login, refresh, logout, me };
+async function updateMe(req, res) {
+  try {
+    const { firstName, lastName, currentPassword, newPassword } = req.body;
+    const data = {};
+
+    if (firstName) data.firstName = firstName;
+    if (lastName) data.lastName = lastName;
+
+    if (newPassword) {
+      if (!currentPassword) return res.status(400).json({ message: 'Current password required to set a new password' });
+      const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) return res.status(401).json({ message: 'Current password is incorrect' });
+      data.password = await bcrypt.hash(newPassword, 12);
+    }
+
+    if (!Object.keys(data).length) return res.status(400).json({ message: 'Nothing to update' });
+
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data,
+      select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, createdAt: true },
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('updateMe error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { login, refresh, logout, me, updateMe };

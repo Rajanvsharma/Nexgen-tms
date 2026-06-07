@@ -15,6 +15,7 @@ enum Role {
   DISPATCHER
   ACCOUNTING
   COMPLIANCE
+  CUSTOMER
 }
 
 enum QuoteStatus {
@@ -26,10 +27,26 @@ enum QuoteStatus {
 
 enum LoadStatus {
   CREATED
+  DRAFT
+  BOOKED
   DISPATCHED
+  DRIVER_ON_ROUTE
+  LOADING
+  ON_ROUTE
   IN_TRANSIT
+  UNLOADING
   DELIVERED
+  DELAYED
+  ON_HOLD
+  TONU
+  DISPUTED
+  CLAIMED
+  INVOICING
   INVOICED
+  PAYMENTS
+  COLLECTION
+  RECEIVED
+  COMPLETED
   CANCELLED
 }
 
@@ -52,6 +69,9 @@ enum CarrierStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+  BLACKLISTED
+  DNC
+  IN_REVIEW
 }
 
 enum EmailLogStatus {
@@ -82,6 +102,8 @@ model User {
   isActive          Boolean            @default(true)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  customerId        String?
+  portalCustomer    Customer?          @relation("PortalAccount", fields: [customerId], references: [id])
   refreshTokens     RefreshToken[]
   announcementsRead AnnouncementRead[]
   announcements     Announcement[]
@@ -142,6 +164,7 @@ model Customer {
   state        String?
   zipCode      String?
   creditTerms  Int      @default(30)
+  creditLimit  Float?
   notes        String?
   isActive     Boolean  @default(true)
   createdById  String
@@ -153,6 +176,7 @@ model Customer {
   invoices      Invoice[]
   noteEntries   Note[]
   conversations Conversation[]
+  userAccounts  User[]         @relation("PortalAccount")
 }
 
 // ─── Carriers ─────────────────────────────────────────────────────────────────
@@ -173,6 +197,8 @@ model Carrier {
   authorityExpiry   DateTime?
   w9OnFile          Boolean       @default(false)
   status            CarrierStatus @default(ACTIVE)
+  contactPerson     String?
+  blacklistReason   String?
   notes             String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -441,6 +467,28 @@ model LoadBoardPosting {
   status    String   @default("POSTED")
   postedAt  DateTime @default(now())
   removedAt DateTime?
+}
+
+// ─── White Label / Branding ───────────────────────────────────────────────────
+
+model BrandingConfig {
+  id            String    @id @default(cuid())
+  domain        String?   @unique
+  companyName   String    @default("NexGen TMS")
+  tagline       String    @default("Transportation Management System")
+  logoData      String?   @db.Text
+  primaryColor  String    @default("#3b82f6")
+  darkColor     String    @default("#1d4ed8")
+  sidebarBg     String    @default("#0d1b2a")
+  accentColor   String    @default("#22c55e")
+  plan          String    @default("enterprise")
+  planExpiresAt DateTime?
+  contactName   String?
+  contactEmail  String?
+  isActive      Boolean   @default(true)
+  isDefault     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 // ─── Agent Logs ───────────────────────────────────────────────────────────────

@@ -97,4 +97,18 @@ async function addLane(req, res) {
   }
 }
 
-module.exports = { getCarriers, getCarrier, createCarrier, updateCarrier, addLane };
+async function deleteCarrier(req, res) {
+  try {
+    const { id } = req.params;
+    const carrier = await prisma.carrier.findUnique({ where: { id }, select: { _count: { select: { loads: true } } } });
+    if (!carrier) return res.status(404).json({ message: 'Carrier not found' });
+    if (carrier._count.loads > 0) return res.status(400).json({ message: `Cannot delete carrier with ${carrier._count.loads} load(s). Remove loads first or mark carrier as BLACKLISTED.` });
+    await prisma.carrier.delete({ where: { id } });
+    res.json({ message: 'Carrier deleted' });
+  } catch (err) {
+    console.error('deleteCarrier error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getCarriers, getCarrier, createCarrier, updateCarrier, deleteCarrier, addLane };

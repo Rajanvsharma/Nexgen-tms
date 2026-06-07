@@ -322,4 +322,119 @@ async function triggerAgent(req, res) {
   }
 }
 
-module.exports = { getRateSuggestion, composeEmail, fraudScan, getInsights, getLoadSummary, optimizeMargin, getAgentLogs, triggerAgent };
+// ─── Voice Negotiation ────────────────────────────────────────────────────────
+
+function getDemoNegotiateResponse(messages, load, targetRate, maxRate) {
+  const pickupStr = load.pickupDate
+    ? new Date(load.pickupDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    : 'ASAP';
+
+  const userMessages = messages.filter(m => m.role === 'user');
+  const turnCount = userMessages.length;
+
+  if (turnCount > 0) {
+    const lastMsg = userMessages[userMessages.length - 1].content;
+    const rateMatch = lastMsg.match(/\$?\s*([1-9][0-9]{2,4})/);
+    if (rateMatch) {
+      const mentioned = parseFloat(rateMatch[1]);
+      if (mentioned <= targetRate) {
+        return { reply: `Perfect — deal at $${mentioned}. I'll send the rate confirmation over to you shortly!`, dealReached: true, agreedRate: mentioned, demoMode: true };
+      }
+      if (mentioned <= maxRate) {
+        return { reply: `Alright, we can make $${mentioned} work. Deal at $${mentioned}. Rate con coming your way within the hour.`, dealReached: true, agreedRate: mentioned, demoMode: true };
+      }
+      if (turnCount >= 3) {
+        return { reply: `Appreciate your time, but we can't go above $${maxRate} on this one. We'll need to look at other options — thanks!`, dealReached: false, agreedRate: null, demoMode: true };
+      }
+      const counter = Math.min(targetRate + Math.round((mentioned - targetRate) * 0.35 / 50) * 50, maxRate);
+      return { reply: `That's a bit over our ceiling on this lane. Best I can do is $${counter} — clean no-touch load. Does that work?`, dealReached: false, agreedRate: null, demoMode: true };
+    }
+  }
+
+  if (turnCount === 0) {
+    return {
+      reply: `Hi, this is Alex from NexGen TMS. I have a ${load.equipment} load — ${load.pickupCity}, ${load.pickupState} to ${load.deliveryCity}, ${load.deliveryState}, picking up ${pickupStr}. We're looking at $${targetRate}. Does that work for your truck?`,
+      dealReached: false, agreedRate: null, demoMode: true,
+    };
+  }
+
+  const counters = [
+    `We're tight on margin here. I can go up to $${targetRate + 100} — solid lane, no issues. Any chance that works?`,
+    `How about $${Math.round((targetRate + maxRate) / 2 / 50) * 50}? I really want to get this truck booked today.`,
+    `Last offer — $${maxRate - 50}. That's our ceiling on this load.`,
+    `Sorry, we've hit our limit. I'll need to look at other options. Thanks for your time!`,
+  ];
+  return { reply: counters[Math.min(turnCount - 1, counters.length - 1)], dealReached: false, agreedRate: null, demoMode: true };
+}
+
+async function negotiateRate(req, res) {
+  try {
+    const { loadId, messages } = req.body;
+    if (!loadId) return res.status(400).json({ message: 'loadId required' });
+
+    const load = await prisma.load.findUnique({
+      where: { id: loadId },
+      select: { id: true, loadNumber: true, pickupCity: true, pickupState: true, deliveryCity: true, deliveryState: true, equipment: true, customerRate: true, carrierRate: true, pickupDate: true, commodity: true, weight: true },
+    });
+    if (!load) return res.status(404).json({ message: 'Load not found' });
+
+    const targetRate = load.carrierRate || Math.round(load.customerRate * 0.82);
+    const maxRate = Math.round(load.customerRate * 0.91);
+    const client = getClient();
+
+    if (!client) {
+      return res.json(getDemoNegotiateResponse(messages || [], load, targetRate, maxRate));
+    }
+
+    const pickupStr = load.pickupDate
+      ? new Date(load.pickupDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      : 'ASAP';
+
+    const system = `You are Alex, a professional freight broker at NexGen TMS negotiating carrier rates by phone.
+
+Load details (CONFIDENTIAL — never reveal the customer rate):
+- Load: ${load.loadNumber}
+- Route: ${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}
+- Equipment: ${load.equipment}
+- Commodity: ${load.commodity || 'General freight'}
+- Weight: ${load.weight ? load.weight + ' lbs' : 'TBD'}
+- Pickup: ${pickupStr}
+- Your target carrier rate: $${targetRate}
+- Absolute maximum: $${maxRate} (walk away if they won't accept)
+
+Rules:
+- First turn: introduce yourself and offer $${targetRate}
+- If carrier rate ≤ $${targetRate}: accept immediately
+- If carrier rate between $${targetRate + 1} and $${maxRate}: negotiate up in $50-100 steps
+- If carrier asks > $${maxRate}: say you'll need to look at other carriers
+- When deal is final, include exactly: "Deal at $AMOUNT."
+- Keep every reply to 1-2 sentences MAX — this is a phone call
+- Respond only as Alex`;
+
+    const claudeMessages = (messages || []).length === 0
+      ? [{ role: 'user', content: 'start' }]
+      : (messages || []).map(m => ({ role: m.role, content: m.content }));
+
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 150,
+      system,
+      messages: claudeMessages,
+    });
+
+    const reply = response.content[0].text.trim();
+    const dealReached = /deal at \$[\d,]+/i.test(reply);
+    let agreedRate = null;
+    if (dealReached) {
+      const m = reply.match(/deal at \$([0-9,]+)/i);
+      if (m) agreedRate = parseFloat(m[1].replace(',', ''));
+    }
+
+    res.json({ reply, dealReached, agreedRate, demoMode: false });
+  } catch (err) {
+    console.error('negotiateRate error:', err);
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = { getRateSuggestion, composeEmail, fraudScan, getInsights, getLoadSummary, optimizeMargin, getAgentLogs, triggerAgent, negotiateRate };
