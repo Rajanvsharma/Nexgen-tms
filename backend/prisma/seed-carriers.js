@@ -146,7 +146,7 @@ async function main() {
         const d = pick(CITIES.filter(c2 => c2.city !== o.city));
         await prisma.carrierLane.create({
           data: {
-            carrierId: (await prisma.carrier.findFirst({ where: { mcNumber: mc } }))!.id,
+            carrierId: (await prisma.carrier.findFirst({ where: { mcNumber: mc } })).id,
             origin: `${o.city}, ${o.state}`,
             destination: `${d.city}, ${d.state}`,
             equipment: pick(equips),
@@ -167,7 +167,7 @@ async function main() {
   const byStatus = await prisma.$queryRaw`SELECT status, COUNT(*) as count FROM "Carrier" GROUP BY status`;
   console.log(`\n✅ Carrier database total: ${total}`);
   console.log('📊 By status:');
-  (byStatus as any[]).forEach(r => console.log(`   ${r.status}: ${r.count}`));
+  byStatus.forEach(r => console.log(`   ${r.status}: ${r.count}`));
 }
 
 main()
