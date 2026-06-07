@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate --schema=./prisma/schema.prisma",
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
-    "build": "npx prisma generate && npx prisma migrate deploy",
+    "build": "prisma generate --schema=./prisma/schema.prisma",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.js",
