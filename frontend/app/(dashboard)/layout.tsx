@@ -8,6 +8,7 @@ import Toaster from '@/components/ui/Toaster';
 import { useAuthStore } from '@/store/auth.store';
 import { useBrandingStore } from '@/store/branding.store';
 import { useInitAuth } from '@/hooks/useAuth';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   useInitAuth();
@@ -34,13 +35,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {children}
+    <ErrorBoundary>
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+        </div>
+        <CopilotChat />
+        <Toaster />
       </div>
-      <CopilotChat />
-      <Toaster />
-    </div>
+    </ErrorBoundary>
   );
 }

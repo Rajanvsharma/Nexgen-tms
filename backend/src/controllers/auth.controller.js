@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { generateAccessToken, generateRefreshToken, rotateRefreshToken, deleteRefreshToken } = require('../services/token.service');
 
@@ -116,4 +117,79 @@ async function updateMe(req, res) {
   }
 }
 
-module.exports = { login, refresh, logout, me, updateMe };
+async function forgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    // Always return 200 to prevent email enumeration
+    if (!user || !user.isActive) return res.json({ message: 'If that email exists, a reset link has been sent.' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken: token, resetTokenExpiry: expiry },
+    });
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+
+    if (process.env.SMTP_HOST) {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      });
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: user.email,
+        subject: 'NexGen TMS — Password Reset',
+        html: `<p>Hi ${user.firstName},</p>
+               <p>Click the link below to reset your password. It expires in 1 hour.</p>
+               <p><a href="${resetUrl}">${resetUrl}</a></p>
+               <p>If you did not request this, ignore this email.</p>`,
+      });
+    } else {
+      // No SMTP configured — log to console for development
+      console.log(`[Password Reset] Token for ${email}: ${resetUrl}`);
+    }
+
+    res.json({ message: 'If that email exists, a reset link has been sent.' });
+  } catch (err) {
+    console.error('forgotPassword error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ message: 'Token and new password are required' });
+    if (password.length < 8) return res.status(400).json({ message: 'Password must be at least 8 characters' });
+
+    const user = await prisma.user.findFirst({
+      where: { resetToken: token, resetTokenExpiry: { gt: new Date() } },
+    });
+    if (!user) return res.status(400).json({ message: 'Reset link is invalid or has expired' });
+
+    const hashed = await bcrypt.hash(password, 12);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashed, resetToken: null, resetTokenExpiry: null },
+    });
+
+    // Invalidate all refresh tokens for security
+    await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+
+    res.json({ message: 'Password reset successfully. Please log in.' });
+  } catch (err) {
+    console.error('resetPassword error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { login, refresh, logout, me, updateMe, forgotPassword, resetPassword };
