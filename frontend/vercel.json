@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npm run build",
+  "buildCommand": "NODE_OPTIONS='--max_old_space_size=4096' npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm install",
   "env": {
