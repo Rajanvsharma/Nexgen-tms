@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DollarSign, FileText, CreditCard, AlertTriangle } from 'lucide-react';
+import { DollarSign, FileText, CreditCard, AlertTriangle, Send, ExternalLink } from 'lucide-react';
 import Topbar from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
@@ -70,6 +70,14 @@ export default function AccountingPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [aging, setAging] = useState<AgingBucket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [toast, setToast] = useState('');
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3500);
+  }
 
   async function loadData() {
     try {
@@ -93,14 +101,36 @@ export default function AccountingPage() {
     await loadData();
   }
 
-  async function markInvoiceSent(id: string) {
-    await api.patch(`/accounting/invoices/${id}/status`, { status: 'SENT' });
-    await loadData();
-  }
-
   async function markPaymentPaid(id: string) {
     await api.patch(`/accounting/payments/${id}/status`, { status: 'PAID' });
     await loadData();
+  }
+
+  async function emailInvoice(id: string) {
+    setSending(id);
+    try {
+      const { data } = await api.post(`/accounting/invoices/${id}/send`);
+      showToast(data.simulated ? 'Invoice sent (simulated — configure SMTP to send real emails)' : data.message);
+      await loadData();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to send invoice';
+      showToast(`Error: ${msg}`);
+    } finally {
+      setSending(null);
+    }
+  }
+
+  async function exportToQuickBooks(id: string) {
+    setExporting(id);
+    try {
+      const { data } = await api.post(`/quickbooks/invoices/${id}/export`);
+      showToast(`Exported to QuickBooks: ${data.quickbooksId}`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'QuickBooks export failed';
+      showToast(`Error: ${msg}`);
+    } finally {
+      setExporting(null);
+    }
   }
 
   const totalInvoiced = invoices.filter((i) => i.status !== 'VOID').reduce((s, i) => s + i.amount, 0);
@@ -112,6 +142,11 @@ export default function AccountingPage() {
 
   return (
     <>
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded-lg shadow-lg max-w-sm">
+          {toast}
+        </div>
+      )}
       <Topbar title="Accounting & Billing" />
       <main className="flex-1 overflow-auto p-6 space-y-6">
 
@@ -235,13 +270,18 @@ export default function AccountingPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-500">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '—'}</td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        {inv.status === 'DRAFT' && (
-                          <Button size="sm" variant="outline" onClick={() => markInvoiceSent(inv.id)}>Send</Button>
+                      <div className="flex gap-2 flex-wrap">
+                        {['DRAFT', 'SENT', 'OVERDUE'].includes(inv.status) && (
+                          <Button size="sm" variant="outline" disabled={sending === inv.id} onClick={() => emailInvoice(inv.id)}>
+                            <Send className="h-3 w-3 mr-1" />{sending === inv.id ? 'Sending…' : 'Email'}
+                          </Button>
                         )}
                         {['SENT', 'OVERDUE'].includes(inv.status) && (
                           <Button size="sm" onClick={() => markInvoicePaid(inv.id)}>Mark Paid</Button>
                         )}
+                        <Button size="sm" variant="outline" disabled={exporting === inv.id} onClick={() => exportToQuickBooks(inv.id)}>
+                          <ExternalLink className="h-3 w-3 mr-1" />{exporting === inv.id ? '…' : 'QB'}
+                        </Button>
                       </div>
                     </td>
                   </tr>

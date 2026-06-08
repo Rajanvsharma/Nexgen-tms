@@ -1,5 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
+const crypto = require('crypto');
+const { sendRateConfirmationEmail } = require('../services/outbound.service');
 const prisma = new PrismaClient();
 
 function formatDate(d) {
@@ -216,4 +218,123 @@ async function getDocuments(req, res) {
   }
 }
 
-module.exports = { generateRateConfirmation, generateBOL, getDocuments };
+async function sendRateConfirmation(req, res) {
+  try {
+    const load = await prisma.load.findUnique({
+      where: { id: req.params.id },
+      include: { customer: true, carrier: true, createdBy: { select: { firstName: true, lastName: true } } },
+    });
+    if (!load) return res.status(404).json({ message: 'Load not found' });
+    if (!load.carrier) return res.status(400).json({ message: 'No carrier assigned to this load' });
+    if (!load.carrier.email) return res.status(400).json({ message: 'Carrier has no email address on file' });
+
+    const signToken = crypto.randomBytes(24).toString('hex');
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const signUrl = `${frontendBase}/sign/${signToken}`;
+
+    // Generate PDF buffer
+    const pdfBuffer = await new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
+      const chunks = [];
+      doc.on('data', c => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const fmt = n => n != null ? `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : 'N/A';
+      const fmtD = d => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
+
+      doc.fontSize(20).fillColor('#1e40af').text('NexGen TMS', 50, 50);
+      doc.fontSize(16).fillColor('#111827').text('RATE CONFIRMATION', 350, 50, { align: 'right' });
+      doc.fontSize(10).fillColor('#6b7280')
+        .text(`Load #: ${load.loadNumber}`, 350, 75, { align: 'right' })
+        .text(`Date: ${fmtD(new Date())}`, 350, 90, { align: 'right' });
+      doc.moveTo(50, 110).lineTo(562, 110).strokeColor('#e5e7eb').stroke();
+
+      doc.fontSize(11).fillColor('#374151').text('CARRIER', 50, 125);
+      doc.fontSize(10).fillColor('#111827')
+        .text(load.carrier.name, 50, 143).text(`MC: ${load.carrier.mcNumber}`, 50, 158).text(load.carrier.phone || '', 50, 173);
+
+      doc.fontSize(11).fillColor('#374151').text('SHIPMENT', 310, 125);
+      doc.fontSize(10).fillColor('#111827')
+        .text(`${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}`, 310, 143)
+        .text(`Pickup: ${fmtD(load.pickupDate)}`, 310, 158)
+        .text(`Equipment: ${load.equipment}`, 310, 173);
+
+      doc.moveTo(50, 195).lineTo(562, 195).strokeColor('#e5e7eb').stroke();
+      doc.fontSize(14).fillColor('#1e40af').text(`Carrier Rate: ${fmt(load.carrierRate)}`, 50, 210);
+
+      doc.fontSize(9).fillColor('#6b7280')
+        .text('Sign this confirmation at:', 50, 240)
+        .text(signUrl, 50, 255, { link: signUrl, underline: true });
+
+      doc.end();
+    });
+
+    const doc = await prisma.document.create({
+      data: {
+        type: 'RATE_CONFIRMATION', loadId: load.id,
+        filename: `rate-confirmation-${load.loadNumber}.pdf`,
+        createdById: req.user.id,
+        signatureToken: signToken,
+      },
+    });
+
+    const result = await sendRateConfirmationEmail({ load, carrier: load.carrier, signUrl, pdfBuffer });
+    res.json({ message: `Rate confirmation sent to ${load.carrier.email}`, signUrl, simulated: !!result.simulated, documentId: doc.id });
+  } catch (err) {
+    console.error('sendRateConfirmation error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+async function getSignRequest(req, res) {
+  try {
+    const doc = await prisma.document.findUnique({
+      where: { signatureToken: req.params.token },
+      include: { load: { include: { carrier: true, customer: true } } },
+    });
+    if (!doc) return res.status(404).json({ message: 'Signing link is invalid or has expired' });
+    res.json({
+      documentId: doc.id,
+      type: doc.type,
+      filename: doc.filename,
+      signed: !!doc.signedAt,
+      signedAt: doc.signedAt,
+      signerName: doc.signerName,
+      load: doc.load ? {
+        loadNumber: doc.load.loadNumber,
+        pickupCity: doc.load.pickupCity, pickupState: doc.load.pickupState,
+        deliveryCity: doc.load.deliveryCity, deliveryState: doc.load.deliveryState,
+        pickupDate: doc.load.pickupDate, deliveryDate: doc.load.deliveryDate,
+        equipment: doc.load.equipment, carrierRate: doc.load.carrierRate,
+        carrier: doc.load.carrier ? { name: doc.load.carrier.name, mcNumber: doc.load.carrier.mcNumber } : null,
+      } : null,
+    });
+  } catch (err) {
+    console.error('getSignRequest error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+async function submitSignature(req, res) {
+  try {
+    const { signerName, signerEmail, signatureData } = req.body;
+    if (!signerName || !signatureData) return res.status(400).json({ message: 'signerName and signatureData are required' });
+
+    const doc = await prisma.document.findUnique({ where: { signatureToken: req.params.token } });
+    if (!doc) return res.status(404).json({ message: 'Signing link is invalid' });
+    if (doc.signedAt) return res.status(400).json({ message: 'Document already signed' });
+
+    await prisma.document.update({
+      where: { id: doc.id },
+      data: { signedAt: new Date(), signerName, signerEmail: signerEmail || null, signatureData },
+    });
+
+    res.json({ message: 'Document signed successfully', signedAt: new Date() });
+  } catch (err) {
+    console.error('submitSignature error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { generateRateConfirmation, generateBOL, getDocuments, sendRateConfirmation, getSignRequest, submitSignature };

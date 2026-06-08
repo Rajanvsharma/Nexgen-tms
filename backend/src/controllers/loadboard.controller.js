@@ -1,11 +1,98 @@
 const { PrismaClient } = require('@prisma/client');
+const https = require('https');
 const prisma = new PrismaClient();
 
-// Load board stubs — replace with real API calls when credentials are available
+async function postToDAT(load) {
+  const apiKey = process.env.DAT_API_KEY;
+  if (!apiKey) return { postingId: `DAT-SIM-${Date.now()}`, simulated: true };
+
+  // DAT Freight & Analytics REST API
+  // Docs: https://freight.dat.com/freight-exchange-api
+  const payload = JSON.stringify({
+    origin: { city: load.pickupCity, stateProv: load.pickupState },
+    destination: { city: load.deliveryCity, stateProv: load.deliveryState },
+    equipmentType: mapEquipmentToDAT(load.equipment),
+    weight: load.weight,
+    loadDate: load.pickupDate,
+    postedRate: load.carrierRate,
+    commodity: load.commodity || 'General Freight',
+    comments: load.specialInstructions || '',
+  });
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'freight.dat.com',
+      path: '/freight-exchange/v2/loads',
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const body = JSON.parse(data);
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve({ postingId: body.id || body.loadId, simulated: false });
+          else reject(new Error(body.message || `DAT API error ${res.statusCode}`));
+        } catch { reject(new Error('DAT API: invalid response')); }
+      });
+    });
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+async function postToTruckstop(load) {
+  const apiKey = process.env.TRUCKSTOP_API_KEY;
+  if (!apiKey) return { postingId: `TRUCKSTOP-SIM-${Date.now()}`, simulated: true };
+
+  // Truckstop.com Integration Platform API
+  const payload = JSON.stringify({
+    originCity: load.pickupCity, originState: load.pickupState,
+    destinationCity: load.deliveryCity, destinationState: load.deliveryState,
+    equipmentType: mapEquipmentToTruckstop(load.equipment),
+    weight: load.weight, pickupDate: load.pickupDate,
+    rate: load.carrierRate, commodity: load.commodity,
+  });
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.integration.truckstop.com',
+      path: '/webservices/loadboard/v3/loads',
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const body = JSON.parse(data);
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve({ postingId: body.loadId || body.id, simulated: false });
+          else reject(new Error(body.message || `Truckstop API error ${res.statusCode}`));
+        } catch { reject(new Error('Truckstop API: invalid response')); }
+      });
+    });
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+function mapEquipmentToDAT(eq) {
+  const map = { 'Dry Van': 'V', 'Reefer': 'R', 'Flatbed': 'F', 'Step Deck': 'SD', 'Power Only': 'PO', 'Box Truck': 'BT' };
+  return map[eq] || 'V';
+}
+function mapEquipmentToTruckstop(eq) {
+  const map = { 'Dry Van': 'V', 'Reefer': 'R', 'Flatbed': 'F', 'Step Deck': 'SD', 'Power Only': 'PO' };
+  return map[eq] || 'V';
+}
+
 async function postToBoard(board, load) {
-  // Simulated posting — in production, call DAT/Truckstop/BulkLoads APIs here
-  const mockPostingId = `${board}-${Date.now()}`;
-  return { postingId: mockPostingId, success: true };
+  switch (board) {
+    case 'DAT':        return postToDAT(load);
+    case 'TRUCKSTOP':  return postToTruckstop(load);
+    default:           return { postingId: `${board}-SIM-${Date.now()}`, simulated: true };
+  }
 }
 
 async function postLoad(req, res) {
@@ -27,9 +114,9 @@ async function postLoad(req, res) {
       const existing = await prisma.loadBoardPosting.findFirst({ where: { loadId: load.id, board, status: 'POSTED' } });
       if (existing) { results.push({ board, status: 'ALREADY_POSTED', postingId: existing.postingId }); continue; }
 
-      const { postingId } = await postToBoard(board, load);
+      const { postingId, simulated } = await postToBoard(board, load);
       await prisma.loadBoardPosting.create({ data: { loadId: load.id, board, postingId, status: 'POSTED' } });
-      results.push({ board, status: 'POSTED', postingId });
+      results.push({ board, status: 'POSTED', postingId, simulated: !!simulated });
     }
 
     res.json(results);

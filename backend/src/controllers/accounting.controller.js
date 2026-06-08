@@ -1,5 +1,62 @@
 const { PrismaClient } = require('@prisma/client');
+const PDFDocument = require('pdfkit');
+const { sendInvoiceEmail } = require('../services/outbound.service');
 const prisma = new PrismaClient();
+
+function buildInvoicePDF(invoice, load, customer) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
+    const chunks = [];
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const fmt = n => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-US') : 'N/A';
+
+    doc.fontSize(20).fillColor('#1e40af').text('NexGen TMS', 50, 50);
+    doc.fontSize(10).fillColor('#6b7280').text('Transportation Management System', 50, 75);
+    doc.fontSize(16).fillColor('#111827').text('INVOICE', 400, 50, { align: 'right' });
+    doc.fontSize(10).fillColor('#6b7280')
+      .text(`Invoice #: ${invoice.invoiceNumber}`, 400, 75, { align: 'right' })
+      .text(`Date: ${fmtDate(invoice.createdAt)}`, 400, 90, { align: 'right' })
+      .text(`Due: ${fmtDate(invoice.dueDate)}`, 400, 105, { align: 'right' });
+
+    doc.moveTo(50, 125).lineTo(562, 125).strokeColor('#e5e7eb').stroke();
+
+    doc.fontSize(11).fillColor('#374151').text('BILL TO', 50, 140);
+    doc.fontSize(10).fillColor('#111827')
+      .text(customer.name, 50, 158)
+      .text(customer.email || '', 50, 173)
+      .text(customer.phone || '', 50, 188);
+
+    doc.fontSize(11).fillColor('#374151').text('LOAD DETAILS', 310, 140);
+    doc.fontSize(10).fillColor('#111827')
+      .text(`Load #: ${load.loadNumber}`, 310, 158)
+      .text(`${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}`, 310, 173)
+      .text(`Equipment: ${load.equipment}`, 310, 188);
+
+    doc.moveTo(50, 210).lineTo(562, 210).strokeColor('#e5e7eb').stroke();
+
+    doc.rect(50, 225, 512, 20).fill('#f3f4f6');
+    doc.fontSize(9).fillColor('#374151')
+      .text('DESCRIPTION', 55, 231).text('AMOUNT', 500, 231, { align: 'right', width: 60 });
+
+    doc.fontSize(10).fillColor('#111827')
+      .text(`Freight services — Load ${load.loadNumber}`, 55, 252)
+      .text(fmt(invoice.amount), 500, 252, { align: 'right', width: 60 });
+
+    doc.moveTo(50, 275).lineTo(562, 275).strokeColor('#e5e7eb').stroke();
+    doc.fontSize(12).fillColor('#111827').text('TOTAL DUE', 400, 285);
+    doc.fontSize(16).fillColor('#1e40af').text(fmt(invoice.amount), 400, 303, { align: 'right', width: 160 });
+
+    if (invoice.notes) {
+      doc.fontSize(9).fillColor('#6b7280').text('Notes:', 50, 340).text(invoice.notes, 50, 355);
+    }
+
+    doc.end();
+  });
+}
 
 async function nextInvoiceNumber() {
   const last = await prisma.invoice.findFirst({ orderBy: { createdAt: 'desc' }, select: { invoiceNumber: true } });
@@ -117,4 +174,28 @@ async function updatePaymentStatus(req, res) {
   }
 }
 
-module.exports = { getInvoices, createInvoice, updateInvoiceStatus, getPayments, createPayment, updatePaymentStatus };
+async function sendInvoice(req, res) {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+      include: {
+        load: true,
+        customer: true,
+      },
+    });
+    if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
+    if (!invoice.customer.email) return res.status(400).json({ message: 'Customer has no email address on file' });
+
+    const pdfBuffer = await buildInvoicePDF(invoice, invoice.load, invoice.customer);
+    const result = await sendInvoiceEmail({ invoice, load: invoice.load, customer: invoice.customer, pdfBuffer });
+
+    await prisma.invoice.update({ where: { id: invoice.id }, data: { status: 'SENT' } });
+
+    res.json({ message: `Invoice sent to ${invoice.customer.email}`, simulated: !!result.simulated });
+  } catch (err) {
+    console.error('sendInvoice error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getInvoices, createInvoice, updateInvoiceStatus, sendInvoice, getPayments, createPayment, updatePaymentStatus };

@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { generateAccessToken, generateRefreshToken, rotateRefreshToken, deleteRefreshToken } = require('../services/token.service');
+const { sendPasswordResetEmail } = require('../services/outbound.service');
 
 const prisma = new PrismaClient();
 
@@ -136,26 +137,9 @@ async function forgotPassword(req, res) {
 
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
 
-    if (process.env.SMTP_HOST) {
-      const nodemailer = require('nodemailer');
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-      });
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to: user.email,
-        subject: 'NexGen TMS — Password Reset',
-        html: `<p>Hi ${user.firstName},</p>
-               <p>Click the link below to reset your password. It expires in 1 hour.</p>
-               <p><a href="${resetUrl}">${resetUrl}</a></p>
-               <p>If you did not request this, ignore this email.</p>`,
-      });
-    } else {
-      // No SMTP configured — log to console for development
-      console.log(`[Password Reset] Token for ${email}: ${resetUrl}`);
+    await sendPasswordResetEmail({ toEmail: user.email, firstName: user.firstName, resetUrl });
+    if (!process.env.SMTP_HOST) {
+      console.log(`[Password Reset] No SMTP configured — reset URL: ${resetUrl}`);
     }
 
     res.json({ message: 'If that email exists, a reset link has been sent.' });
