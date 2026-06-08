@@ -9,9 +9,10 @@ const LOAD_INCLUDE = {
 
 async function getLoads(req, res) {
   try {
-    const where = req.user.role === 'ADMIN' ? {} : { createdById: req.user.id };
-    const { status } = req.query;
-    if (status) where.status = status;
+    const orgId = req.user.organizationId;
+    const where = { organizationId: orgId };
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'ACCOUNTING') where.createdById = req.user.id;
+    if (req.query.status) where.status = req.query.status;
 
     const loads = await prisma.load.findMany({ where, orderBy: { createdAt: 'desc' }, include: LOAD_INCLUDE });
     res.json(loads);
@@ -23,8 +24,8 @@ async function getLoads(req, res) {
 
 async function getLoad(req, res) {
   try {
-    const load = await prisma.load.findUnique({
-      where: { id: req.params.id },
+    const load = await prisma.load.findFirst({
+      where: { id: req.params.id, organizationId: req.user.organizationId },
       include: { ...LOAD_INCLUDE, quote: true, invoice: true, payment: true },
     });
     if (!load) return res.status(404).json({ message: 'Load not found' });
@@ -37,53 +38,62 @@ async function getLoad(req, res) {
 
 const CREDIT_EXCLUDED = ['CANCELLED', 'COMPLETED', 'RECEIVED'];
 
-async function checkCreditLimit(customerId, newAmount) {
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+async function checkCreditLimit(customerId, orgId, newAmount) {
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, organizationId: orgId },
     select: { creditLimit: true, name: true },
   });
   if (!customer || customer.creditLimit == null) return null;
 
   const agg = await prisma.load.aggregate({
-    where: { customerId, status: { notIn: CREDIT_EXCLUDED } },
+    where: { customerId, organizationId: orgId, status: { notIn: CREDIT_EXCLUDED } },
     _sum: { customerRate: true },
   });
   const used = agg._sum.customerRate || 0;
   const available = customer.creditLimit - used;
   if (newAmount > available) {
     const fmt = n => `$${Math.round(n).toLocaleString('en-US')}`;
-    return `Credit limit exceeded for "${customer.name}". Available: ${fmt(available)}, Load value: ${fmt(newAmount)}. Increase the credit limit or choose a different customer.`;
+    return `Credit limit exceeded for "${customer.name}". Available: ${fmt(available)}, Load value: ${fmt(newAmount)}.`;
   }
   return null;
 }
 
-async function nextLoadNumber() {
-  const loads = await prisma.load.findMany({ select: { loadNumber: true } });
+async function nextLoadNumber(orgId, slug) {
+  const loads = await prisma.load.findMany({ where: { organizationId: orgId }, select: { loadNumber: true } });
+  const prefix = slug.toUpperCase().replace(/-+$/, '');
   let max = 10000;
   for (const l of loads) {
-    const n = parseInt(l.loadNumber.replace('PRO-', ''), 10);
+    const n = parseInt(l.loadNumber.replace(/^[^-]+-/, '').replace(/^PRO-/, ''), 10);
     if (!isNaN(n) && n > max) max = n;
   }
-  return `PRO-${String(max + 1).padStart(6, '0')}`;
+  return `${prefix}-${String(max + 1).padStart(6, '0')}`;
+}
+
+async function getOrgSlug(orgId) {
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { slug: true } });
+  return org?.slug || 'PRO';
 }
 
 async function createLoad(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const { customerId, pickupCity, pickupState, deliveryCity, deliveryState, commodity, weight, equipment, pickupDate, deliveryDate, customerRate, carrierRate, specialInstructions } = req.body;
     if (!customerId || !pickupCity || !pickupState || !deliveryCity || !deliveryState || !equipment || !customerRate) {
       return res.status(400).json({ message: 'customerId, cities, states, equipment, and customerRate are required' });
     }
 
     const cust = parseFloat(customerRate);
-    const creditError = await checkCreditLimit(customerId, cust);
+    const creditError = await checkCreditLimit(customerId, orgId, cust);
     if (creditError) return res.status(400).json({ message: creditError });
 
-    const loadNumber = await nextLoadNumber();
+    const slug = await getOrgSlug(orgId);
+    const loadNumber = await nextLoadNumber(orgId, slug);
     const cr = carrierRate ? parseFloat(carrierRate) : null;
 
     const load = await prisma.load.create({
       data: {
-        loadNumber, customerId, pickupCity, pickupState, deliveryCity, deliveryState,
+        organizationId: orgId, loadNumber, customerId,
+        pickupCity, pickupState, deliveryCity, deliveryState,
         commodity, weight: weight ? parseFloat(weight) : null, equipment,
         pickupDate: pickupDate ? new Date(pickupDate) : null,
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
@@ -102,6 +112,10 @@ async function createLoad(req, res) {
 
 async function updateLoad(req, res) {
   try {
+    const orgId = req.user.organizationId;
+    const existing = await prisma.load.findFirst({ where: { id: req.params.id, organizationId: orgId }, select: { customerRate: true, carrierRate: true } });
+    if (!existing) return res.status(404).json({ message: 'Load not found' });
+
     const { customerId, carrierId, status, customerRate, carrierRate, pickupCity, pickupState, deliveryCity, deliveryState, commodity, weight, equipment, pickupDate, deliveryDate, specialInstructions, driverName, driverPhone } = req.body;
     const data = {};
     if (customerId !== undefined) data.customerId = customerId;
@@ -119,13 +133,10 @@ async function updateLoad(req, res) {
     if (specialInstructions !== undefined) data.specialInstructions = specialInstructions;
     if (driverName !== undefined) data.driverName = driverName;
     if (driverPhone !== undefined) data.driverPhone = driverPhone;
-
-    // Recalculate margin whenever either rate changes
-    const existingLoad = await prisma.load.findUnique({ where: { id: req.params.id }, select: { customerRate: true, carrierRate: true } });
     if (customerRate !== undefined) data.customerRate = parseFloat(customerRate);
     if (carrierRate !== undefined) data.carrierRate = carrierRate ? parseFloat(carrierRate) : null;
-    const cust = data.customerRate ?? existingLoad?.customerRate;
-    const carr = data.carrierRate ?? existingLoad?.carrierRate;
+    const cust = data.customerRate ?? existing.customerRate;
+    const carr = data.carrierRate ?? existing.carrierRate;
     if (cust && carr) data.margin = parseFloat(((cust - carr) / cust * 100).toFixed(2));
 
     const load = await prisma.load.update({ where: { id: req.params.id }, data, include: LOAD_INCLUDE });
@@ -139,7 +150,7 @@ async function updateLoad(req, res) {
 async function deleteLoad(req, res) {
   try {
     const { id } = req.params;
-    const load = await prisma.load.findUnique({ where: { id }, select: { status: true, invoice: { select: { id: true } } } });
+    const load = await prisma.load.findFirst({ where: { id, organizationId: req.user.organizationId }, select: { status: true, invoice: { select: { id: true } } } });
     if (!load) return res.status(404).json({ message: 'Load not found' });
     if (load.invoice) return res.status(400).json({ message: 'Cannot delete a load that has an invoice. Void the invoice first.' });
     await prisma.load.delete({ where: { id } });
@@ -152,8 +163,9 @@ async function deleteLoad(req, res) {
 
 async function checkDuplicate(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const { pickupCity, pickupState, deliveryCity, deliveryState, pickupDate, customerId } = req.query;
-    const where = { customerId, pickupCity, pickupState, deliveryCity, deliveryState, status: { not: 'CANCELLED' } };
+    const where = { organizationId: orgId, customerId, pickupCity, pickupState, deliveryCity, deliveryState, status: { not: 'CANCELLED' } };
     if (pickupDate) {
       const d = new Date(pickupDate);
       where.pickupDate = { gte: new Date(d.setHours(0, 0, 0, 0)), lte: new Date(d.setHours(23, 59, 59, 999)) };
@@ -168,10 +180,11 @@ async function checkDuplicate(req, res) {
 
 async function dispatchLoad(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const { carrierId, carrierRate } = req.body;
     if (!carrierId || !carrierRate) return res.status(400).json({ message: 'carrierId and carrierRate are required' });
 
-    const existing = await prisma.load.findUnique({ where: { id: req.params.id }, select: { customerRate: true, status: true } });
+    const existing = await prisma.load.findFirst({ where: { id: req.params.id, organizationId: orgId }, select: { customerRate: true, status: true, pickupState: true, deliveryState: true } });
     if (!existing) return res.status(404).json({ message: 'Load not found' });
     if (existing.status !== 'CREATED') return res.status(400).json({ message: 'Only CREATED loads can be dispatched' });
 
@@ -185,7 +198,7 @@ async function dispatchLoad(req, res) {
     });
 
     await prisma.carrierLane.updateMany({
-      where: { carrierId, origin: load.pickupState, destination: load.deliveryState },
+      where: { carrierId, origin: existing.pickupState, destination: existing.deliveryState },
       data: { lastUsed: new Date() },
     });
 

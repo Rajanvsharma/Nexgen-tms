@@ -5,16 +5,15 @@ const CREDIT_EXCLUDED = ['CANCELLED', 'COMPLETED', 'RECEIVED'];
 
 async function getCustomers(req, res) {
   try {
-    const where = req.user.role === 'ADMIN' ? {} : { createdById: req.user.id };
+    const orgId = req.user.organizationId;
+    const where = { organizationId: orgId };
+
     const customers = await prisma.customer.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       include: {
         _count: { select: { loads: true, quotes: true } },
-        loads: {
-          where: { status: { notIn: CREDIT_EXCLUDED } },
-          select: { customerRate: true },
-        },
+        loads: { where: { status: { notIn: CREDIT_EXCLUDED } }, select: { customerRate: true } },
       },
     });
     const result = customers.map(c => {
@@ -32,8 +31,8 @@ async function getCustomers(req, res) {
 
 async function getCustomer(req, res) {
   try {
-    const customer = await prisma.customer.findUnique({
-      where: { id: req.params.id },
+    const customer = await prisma.customer.findFirst({
+      where: { id: req.params.id, organizationId: req.user.organizationId },
       include: {
         loads: { orderBy: { createdAt: 'desc' }, take: 10 },
         quotes: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -49,11 +48,17 @@ async function getCustomer(req, res) {
 
 async function createCustomer(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const { name, email, phone, address, city, state, zipCode, creditTerms, creditLimit, notes } = req.body;
     if (!name) return res.status(400).json({ message: 'name is required' });
 
     const customer = await prisma.customer.create({
-      data: { name, email, phone, address, city, state, zipCode, creditTerms: creditTerms || 30, creditLimit: creditLimit ? parseFloat(creditLimit) : null, notes, createdById: req.user.id },
+      data: {
+        organizationId: orgId, name, email, phone, address, city, state, zipCode,
+        creditTerms: creditTerms || 30,
+        creditLimit: creditLimit ? parseFloat(creditLimit) : null,
+        notes, createdById: req.user.id,
+      },
     });
     res.status(201).json(customer);
   } catch (err) {
@@ -64,6 +69,9 @@ async function createCustomer(req, res) {
 
 async function updateCustomer(req, res) {
   try {
+    const exists = await prisma.customer.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId } });
+    if (!exists) return res.status(404).json({ message: 'Customer not found' });
+
     const { name, email, phone, address, city, state, zipCode, creditTerms, creditLimit, notes, isActive } = req.body;
     const data = {};
     if (name !== undefined) data.name = name;
@@ -89,10 +97,10 @@ async function updateCustomer(req, res) {
 async function deleteCustomer(req, res) {
   try {
     const { id } = req.params;
-    const customer = await prisma.customer.findUnique({ where: { id }, select: { _count: { select: { loads: true, quotes: true } } } });
+    const customer = await prisma.customer.findFirst({ where: { id, organizationId: req.user.organizationId }, select: { _count: { select: { loads: true, quotes: true } } } });
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
     if (customer._count.loads > 0 || customer._count.quotes > 0) {
-      return res.status(400).json({ message: `Cannot delete customer with ${customer._count.loads} load(s) and ${customer._count.quotes} quote(s). Deactivate instead.` });
+      return res.status(400).json({ message: `Cannot delete customer with ${customer._count.loads} load(s). Deactivate instead.` });
     }
     await prisma.customer.delete({ where: { id } });
     res.json({ message: 'Customer deleted' });

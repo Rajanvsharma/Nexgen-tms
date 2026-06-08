@@ -1,8 +1,9 @@
 const router = require('express').Router();
-const { login, refresh, logout, me, updateMe, forgotPassword, resetPassword } = require('../controllers/auth.controller');
+const { register, login, refresh, logout, me, updateMe, forgotPassword, resetPassword } = require('../controllers/auth.controller');
 const { setupTOTP, verifyAndEnableTOTP, disableTOTP, getTOTPStatus } = require('../controllers/totp.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
 
+router.post('/register', register);
 router.post('/login', login);
 router.post('/refresh', refresh);
 router.post('/logout', logout);

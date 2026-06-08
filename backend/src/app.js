@@ -26,6 +26,8 @@ const portalRoutes = require('./routes/portal.routes');
 const brandingRoutes = require('./routes/branding.routes');
 const quickbooksRoutes = require('./routes/quickbooks.routes');
 const trackingRoutes = require('./routes/tracking.routes');
+const stripeRoutes = require('./routes/stripe.routes');
+const organizationRoutes = require('./routes/organization.routes');
 const { startAgentScheduler } = require('./services/agents.service');
 
 const app = express();
@@ -38,6 +40,10 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// Stripe webhook needs raw body — must come before express.json()
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -64,6 +70,8 @@ app.use('/api/portal', portalRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/quickbooks', quickbooksRoutes);
 app.use('/api/tracking', trackingRoutes);
+app.use('/api/stripe', stripeRoutes);
+app.use('/api/organization', organizationRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 

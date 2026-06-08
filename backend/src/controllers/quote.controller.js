@@ -1,16 +1,15 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function nextQuoteNumber() {
-  // Find the highest Q-XXXXX number, ignoring other formats (QSP-..., etc.)
+async function nextQuoteNumber(orgId) {
   const quotes = await prisma.quote.findMany({
-    where: { quoteNumber: { startsWith: 'Q-' } },
+    where: { organizationId: orgId, quoteNumber: { startsWith: 'Q-' } },
     select: { quoteNumber: true },
     orderBy: { createdAt: 'desc' },
   });
   let max = 1000;
   for (const q of quotes) {
-    const n = parseInt(q.quoteNumber.replace('Q-', ''), 10);
+    const n = parseInt(q.quoteNumber.replace(/^[^-]+-/, '').replace(/^Q-/, ''), 10);
     if (!isNaN(n) && n > max) max = n;
   }
   return `Q-${String(max + 1).padStart(5, '0')}`;
@@ -18,7 +17,10 @@ async function nextQuoteNumber() {
 
 async function getQuotes(req, res) {
   try {
-    const where = req.user.role === 'ADMIN' ? {} : { createdById: req.user.id };
+    const orgId = req.user.organizationId;
+    const where = { organizationId: orgId };
+    if (req.user.role !== 'ADMIN') where.createdById = req.user.id;
+
     const quotes = await prisma.quote.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -33,8 +35,8 @@ async function getQuotes(req, res) {
 
 async function getQuote(req, res) {
   try {
-    const quote = await prisma.quote.findUnique({
-      where: { id: req.params.id },
+    const quote = await prisma.quote.findFirst({
+      where: { id: req.params.id, organizationId: req.user.organizationId },
       include: { customer: true, createdBy: { select: { firstName: true, lastName: true } }, load: true },
     });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
@@ -47,15 +49,17 @@ async function getQuote(req, res) {
 
 async function createQuote(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const { customerId, pickupCity, pickupState, deliveryCity, deliveryState, commodity, weight, equipment, pickupDate, deliveryDate, rate, specialInstructions, source } = req.body;
     if (!customerId || !pickupCity || !pickupState || !deliveryCity || !deliveryState || !equipment || !rate) {
       return res.status(400).json({ message: 'customerId, pickup/delivery cities & states, equipment, and rate are required' });
     }
 
-    const quoteNumber = await nextQuoteNumber();
+    const quoteNumber = await nextQuoteNumber(orgId);
     const quote = await prisma.quote.create({
       data: {
-        quoteNumber, customerId, pickupCity, pickupState, deliveryCity, deliveryState,
+        organizationId: orgId, quoteNumber, customerId,
+        pickupCity, pickupState, deliveryCity, deliveryState,
         commodity, weight: weight ? parseFloat(weight) : null, equipment,
         pickupDate: pickupDate ? new Date(pickupDate) : null,
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
@@ -73,10 +77,11 @@ async function createQuote(req, res) {
 
 async function updateQuoteStatus(req, res) {
   try {
+    const exists = await prisma.quote.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId } });
+    if (!exists) return res.status(404).json({ message: 'Quote not found' });
+
     const { status } = req.body;
-    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
-    }
+    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
     const quote = await prisma.quote.update({ where: { id: req.params.id }, data: { status } });
     res.json(quote);
   } catch (err) {
@@ -87,41 +92,42 @@ async function updateQuoteStatus(req, res) {
 
 async function convertToLoad(req, res) {
   try {
-    const quote = await prisma.quote.findUnique({
-      where: { id: req.params.id },
+    const orgId = req.user.organizationId;
+    const quote = await prisma.quote.findFirst({
+      where: { id: req.params.id, organizationId: orgId },
       include: { load: { select: { id: true } } },
     });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
     if (quote.status !== 'APPROVED') return res.status(400).json({ message: 'Quote must be APPROVED before converting to load' });
     if (quote.load) return res.status(400).json({ message: 'Quote already converted to a load' });
 
-    // Credit limit check
-    const customer = await prisma.customer.findUnique({ where: { id: quote.customerId }, select: { creditLimit: true, name: true } });
+    const customer = await prisma.customer.findFirst({ where: { id: quote.customerId, organizationId: orgId }, select: { creditLimit: true, name: true } });
     if (customer && customer.creditLimit != null) {
       const agg = await prisma.load.aggregate({
-        where: { customerId: quote.customerId, status: { notIn: ['CANCELLED', 'COMPLETED', 'RECEIVED'] } },
+        where: { customerId: quote.customerId, organizationId: orgId, status: { notIn: ['CANCELLED', 'COMPLETED', 'RECEIVED'] } },
         _sum: { customerRate: true },
       });
       const used = agg._sum.customerRate || 0;
       const available = customer.creditLimit - used;
       if (quote.rate > available) {
         const fmt = n => `$${Math.round(n).toLocaleString('en-US')}`;
-        return res.status(400).json({ message: `Credit limit exceeded for "${customer.name}". Available: ${fmt(available)}, Load value: ${fmt(quote.rate)}. Increase the credit limit first.` });
+        return res.status(400).json({ message: `Credit limit exceeded for "${customer.name}". Available: ${fmt(available)}, Load value: ${fmt(quote.rate)}.` });
       }
     }
 
-    // Derive next load number safely — scan all PRO- numbers for the highest
-    const loads = await prisma.load.findMany({ select: { loadNumber: true } });
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { slug: true } });
+    const prefix = (org?.slug || 'PRO').toUpperCase();
+    const loads = await prisma.load.findMany({ where: { organizationId: orgId }, select: { loadNumber: true } });
     let maxNum = 10000;
     for (const l of loads) {
-      const n = parseInt(l.loadNumber.replace('PRO-', ''), 10);
+      const n = parseInt(l.loadNumber.replace(/^[^-]+-/, ''), 10);
       if (!isNaN(n) && n > maxNum) maxNum = n;
     }
-    const loadNumber = `PRO-${String(maxNum + 1).padStart(6, '0')}`;
+    const loadNumber = `${prefix}-${String(maxNum + 1).padStart(6, '0')}`;
 
     const load = await prisma.load.create({
       data: {
-        loadNumber, quoteId: quote.id, customerId: quote.customerId,
+        organizationId: orgId, loadNumber, quoteId: quote.id, customerId: quote.customerId,
         pickupCity: quote.pickupCity, pickupState: quote.pickupState,
         deliveryCity: quote.deliveryCity, deliveryState: quote.deliveryState,
         commodity: quote.commodity, weight: quote.weight, equipment: quote.equipment,
@@ -142,6 +148,9 @@ async function convertToLoad(req, res) {
 
 async function updateQuote(req, res) {
   try {
+    const exists = await prisma.quote.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId } });
+    if (!exists) return res.status(404).json({ message: 'Quote not found' });
+
     const { customerId, pickupCity, pickupState, deliveryCity, deliveryState, commodity, weight, equipment, pickupDate, deliveryDate, rate, specialInstructions, source } = req.body;
     const data = {};
     if (customerId !== undefined) data.customerId = customerId;
@@ -172,7 +181,7 @@ async function updateQuote(req, res) {
 async function deleteQuote(req, res) {
   try {
     const { id } = req.params;
-    const quote = await prisma.quote.findUnique({ where: { id }, select: { load: { select: { id: true } } } });
+    const quote = await prisma.quote.findFirst({ where: { id, organizationId: req.user.organizationId }, select: { load: { select: { id: true } } } });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
     if (quote.load) return res.status(400).json({ message: 'Quote is already converted to a load. Delete the load first.' });
     await prisma.quote.delete({ where: { id } });

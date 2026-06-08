@@ -1,11 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
-
 const prisma = new PrismaClient();
 
 async function getAnnouncements(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const announcements = await prisma.announcement.findMany({
-      where: { isActive: true },
+      where: { organizationId: orgId, isActive: true },
       orderBy: { createdAt: 'desc' },
       include: {
         poster: { select: { firstName: true, lastName: true, role: true } },
@@ -32,11 +32,12 @@ async function getAnnouncements(req, res) {
 
 async function createAnnouncement(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const { title, body } = req.body;
     if (!title || !body) return res.status(400).json({ message: 'title and body are required' });
 
     const announcement = await prisma.announcement.create({
-      data: { title, body, postedBy: req.user.id },
+      data: { organizationId: orgId, title, body, postedBy: req.user.id },
       include: { poster: { select: { firstName: true, lastName: true } } },
     });
 
@@ -72,6 +73,8 @@ async function markRead(req, res) {
 async function deactivateAnnouncement(req, res) {
   try {
     const { id } = req.params;
+    const ann = await prisma.announcement.findFirst({ where: { id, organizationId: req.user.organizationId } });
+    if (!ann) return res.status(404).json({ message: 'Announcement not found' });
     await prisma.announcement.update({ where: { id }, data: { isActive: false } });
     res.json({ message: 'Announcement deactivated' });
   } catch (err) {

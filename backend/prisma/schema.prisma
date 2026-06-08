@@ -90,10 +90,36 @@ enum ConvStatus {
   REOPENED
 }
 
+// ─── Organization (Multi-tenancy) ─────────────────────────────────────────────
+
+model Organization {
+  id                   String    @id @default(cuid())
+  name                 String
+  slug                 String    @unique
+  plan                 String    @default("trial")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  subscriptionStatus   String    @default("trialing")
+  trialEndsAt          DateTime?
+  maxUsers             Int       @default(5)
+  maxLoadsPerMonth     Int       @default(500)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  users         User[]
+  customers     Customer[]
+  carriers      Carrier[]
+  quotes        Quote[]
+  loads         Load[]
+  announcements Announcement[]
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 model User {
   id                String             @id @default(cuid())
+  organizationId    String
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   email             String             @unique
   password          String
   firstName         String
@@ -121,6 +147,8 @@ model User {
   ocrLogs           OcrLog[]
   conversations     Conversation[]
   convMessages      ConvMessage[]
+
+  @@index([organizationId])
 }
 
 model RefreshToken {
@@ -135,14 +163,18 @@ model RefreshToken {
 // ─── Announcements ────────────────────────────────────────────────────────────
 
 model Announcement {
-  id        String             @id @default(cuid())
-  title     String
-  body      String
-  postedBy  String
-  poster    User               @relation(fields: [postedBy], references: [id])
-  isActive  Boolean            @default(true)
-  createdAt DateTime           @default(now())
-  reads     AnnouncementRead[]
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  postedBy       String
+  poster         User               @relation(fields: [postedBy], references: [id])
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  reads          AnnouncementRead[]
+
+  @@index([organizationId])
 }
 
 model AnnouncementRead {
@@ -159,36 +191,42 @@ model AnnouncementRead {
 // ─── Customers ────────────────────────────────────────────────────────────────
 
 model Customer {
-  id           String   @id @default(cuid())
-  name         String
-  email        String?
-  phone        String?
-  address      String?
-  city         String?
-  state        String?
-  zipCode      String?
-  creditTerms  Int      @default(30)
-  creditLimit  Float?
-  notes        String?
-  isActive     Boolean  @default(true)
-  createdById  String
-  createdBy    User     @relation(fields: [createdById], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  quotes        Quote[]
-  loads         Load[]
-  invoices      Invoice[]
-  noteEntries   Note[]
-  conversations Conversation[]
-  userAccounts  User[]         @relation("PortalAccount")
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String?
+  phone          String?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  creditTerms    Int      @default(30)
+  creditLimit    Float?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdById    String
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  quotes         Quote[]
+  loads          Load[]
+  invoices       Invoice[]
+  noteEntries    Note[]
+  conversations  Conversation[]
+  userAccounts   User[]   @relation("PortalAccount")
+
+  @@index([organizationId])
 }
 
 // ─── Carriers ─────────────────────────────────────────────────────────────────
 
 model Carrier {
   id                String        @id @default(cuid())
+  organizationId    String
+  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name              String
-  mcNumber          String        @unique
+  mcNumber          String
   dotNumber         String?
   email             String?
   phone             String?
@@ -213,6 +251,9 @@ model Carrier {
   performances      LoadPerformance[]
   noteEntries       Note[]
   conversations     Conversation[]
+
+  @@unique([mcNumber, organizationId])
+  @@index([organizationId])
 }
 
 model CarrierLane {
@@ -231,6 +272,8 @@ model CarrierLane {
 
 model Quote {
   id                  String      @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   quoteNumber         String      @unique
   customerId          String
   customer            Customer    @relation(fields: [customerId], references: [id])
@@ -252,12 +295,16 @@ model Quote {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   load                Load?
+
+  @@index([organizationId])
 }
 
 // ─── Loads ────────────────────────────────────────────────────────────────────
 
 model Load {
   id                  String     @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   loadNumber          String     @unique
   quoteId             String?    @unique
   quote               Quote?     @relation(fields: [quoteId], references: [id])
@@ -298,17 +345,19 @@ model Load {
   documents           Document[]
   boardPostings       LoadBoardPosting[]
   conversations       Conversation[]
+
+  @@index([organizationId])
 }
 
 // ─── Accounting ───────────────────────────────────────────────────────────────
 
 model Invoice {
-  id            String        @id @default(cuid())
-  invoiceNumber String        @unique
-  loadId        String        @unique
-  load          Load          @relation(fields: [loadId], references: [id])
-  customerId    String
-  customer      Customer      @relation(fields: [customerId], references: [id])
+  id                  String           @id @default(cuid())
+  invoiceNumber       String           @unique
+  loadId              String           @unique
+  load                Load             @relation(fields: [loadId], references: [id])
+  customerId          String
+  customer            Customer         @relation(fields: [customerId], references: [id])
   amount              Float
   status              InvoiceStatus    @default(DRAFT)
   dueDate             DateTime?

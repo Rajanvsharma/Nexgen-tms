@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useBrandingStore } from '@/store/branding.store';
 import { useInitAuth } from '@/hooks/useAuth';
 import { ErrorBoundary } from '@/components/error-boundary';
+import TrialBanner from '@/components/TrialBanner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   useInitAuth();
@@ -39,6 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex min-h-screen">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
+          <TrialBanner />
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

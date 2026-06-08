@@ -1,9 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function getCarriers(_req, res) {
+async function getCarriers(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const carriers = await prisma.carrier.findMany({
+      where: { organizationId: orgId },
       orderBy: { name: 'asc' },
       include: { _count: { select: { loads: true, lanes: true } } },
     });
@@ -16,8 +18,8 @@ async function getCarriers(_req, res) {
 
 async function getCarrier(req, res) {
   try {
-    const carrier = await prisma.carrier.findUnique({
-      where: { id: req.params.id },
+    const carrier = await prisma.carrier.findFirst({
+      where: { id: req.params.id, organizationId: req.user.organizationId },
       include: {
         lanes: { orderBy: { lastUsed: 'desc' } },
         loads: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -33,15 +35,16 @@ async function getCarrier(req, res) {
 
 async function createCarrier(req, res) {
   try {
+    const orgId = req.user.organizationId;
     const { name, mcNumber, dotNumber, email, phone, address, city, state, zipCode, equipmentTypes, insuranceExpiry, authorityExpiry, w9OnFile, notes } = req.body;
     if (!name || !mcNumber) return res.status(400).json({ message: 'name and mcNumber are required' });
 
-    const exists = await prisma.carrier.findUnique({ where: { mcNumber } });
-    if (exists) return res.status(409).json({ message: 'MC number already exists' });
+    const exists = await prisma.carrier.findFirst({ where: { mcNumber, organizationId: orgId } });
+    if (exists) return res.status(409).json({ message: 'MC number already exists in your network' });
 
     const carrier = await prisma.carrier.create({
       data: {
-        name, mcNumber, dotNumber, email, phone, address, city, state, zipCode,
+        organizationId: orgId, name, mcNumber, dotNumber, email, phone, address, city, state, zipCode,
         equipmentTypes: equipmentTypes || [],
         insuranceExpiry: insuranceExpiry ? new Date(insuranceExpiry) : null,
         authorityExpiry: authorityExpiry ? new Date(authorityExpiry) : null,
@@ -58,6 +61,9 @@ async function createCarrier(req, res) {
 
 async function updateCarrier(req, res) {
   try {
+    const exists = await prisma.carrier.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId } });
+    if (!exists) return res.status(404).json({ message: 'Carrier not found' });
+
     const { name, dotNumber, email, phone, address, city, state, zipCode, equipmentTypes, insuranceExpiry, authorityExpiry, w9OnFile, status, notes } = req.body;
     const data = {};
     if (name !== undefined) data.name = name;
@@ -85,6 +91,9 @@ async function updateCarrier(req, res) {
 
 async function addLane(req, res) {
   try {
+    const exists = await prisma.carrier.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId } });
+    if (!exists) return res.status(404).json({ message: 'Carrier not found' });
+
     const { origin, destination, equipment, rate } = req.body;
     if (!origin || !destination) return res.status(400).json({ message: 'origin and destination are required' });
     const lane = await prisma.carrierLane.create({
@@ -100,9 +109,9 @@ async function addLane(req, res) {
 async function deleteCarrier(req, res) {
   try {
     const { id } = req.params;
-    const carrier = await prisma.carrier.findUnique({ where: { id }, select: { _count: { select: { loads: true } } } });
+    const carrier = await prisma.carrier.findFirst({ where: { id, organizationId: req.user.organizationId }, select: { _count: { select: { loads: true } } } });
     if (!carrier) return res.status(404).json({ message: 'Carrier not found' });
-    if (carrier._count.loads > 0) return res.status(400).json({ message: `Cannot delete carrier with ${carrier._count.loads} load(s). Remove loads first or mark carrier as BLACKLISTED.` });
+    if (carrier._count.loads > 0) return res.status(400).json({ message: `Cannot delete carrier with ${carrier._count.loads} load(s). Mark as BLACKLISTED instead.` });
     await prisma.carrier.delete({ where: { id } });
     res.json({ message: 'Carrier deleted' });
   } catch (err) {

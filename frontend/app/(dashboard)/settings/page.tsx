@@ -5,11 +5,12 @@ import { useAuthStore, type AuthUser } from '@/store/auth.store';
 import { useBrandingStore, type BrandingConfig } from '@/store/branding.store';
 import api from '@/lib/api';
 
-type Tab = 'profile' | 'email' | 'notifications' | 'api' | 'system' | 'security';
+type Tab = 'profile' | 'email' | 'notifications' | 'api' | 'system' | 'security' | 'billing';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'profile',       label: 'Profile',         icon: '◯' },
   { id: 'security',      label: 'Security / 2FA',  icon: '🔒' },
+  { id: 'billing',       label: 'Billing & Plan',  icon: '💳' },
   { id: 'email',         label: 'Email (IMAP)',     icon: '✉' },
   { id: 'notifications', label: 'Notifications',    icon: '🔔' },
   { id: 'api',           label: 'API Keys',         icon: '🔑' },
@@ -60,6 +61,7 @@ export default function SettingsPage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: 32 }}>
         {tab === 'profile'       && <ProfileTab user={user} setUser={setUser} primary={primary} />}
         {tab === 'security'      && <SecurityTab primary={primary} />}
+        {tab === 'billing'       && <BillingTab primary={primary} />}
         {tab === 'email'         && <EmailTab primary={primary} />}
         {tab === 'notifications' && <NotificationsTab primary={primary} />}
         {tab === 'api'           && <ApiTab primary={primary} />}
@@ -458,6 +460,139 @@ const inp: React.CSSProperties = {
   borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box',
   background: '#fff',
 };
+
+// ─── Billing Tab ─────────────────────────────────────────────────────────────
+function BillingTab({ primary }: { primary: string }) {
+  const [org, setOrg] = useState<{
+    name: string; plan: string; subscriptionStatus: string; trialEndsAt: string | null;
+    maxUsers: number; maxLoadsPerMonth: number; usage: { users: number; loadsThisMonth: number };
+  } | null>(null);
+  const [plans, setPlans] = useState<{ id: string; name: string; price: number; features: string[]; recommended?: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [upgrading, setUpgrading] = useState('');
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  useEffect(() => {
+    Promise.all([api.get('/organization'), api.get('/stripe/plans')])
+      .then(([orgRes, plansRes]) => { setOrg(orgRes.data); setPlans(plansRes.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const daysLeft = org?.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(org.trialEndsAt).getTime() - Date.now()) / 86400000))
+    : null;
+
+  async function checkout(planId: string) {
+    setUpgrading(planId);
+    try {
+      const { data } = await api.post('/stripe/checkout', { planId });
+      if (data.url) window.location.href = data.url;
+      else alert('Stripe not configured. Add STRIPE_SECRET_KEY to backend .env');
+    } catch { alert('Billing unavailable. Contact support.'); }
+    finally { setUpgrading(''); }
+  }
+
+  async function openPortal() {
+    setPortalLoading(true);
+    try {
+      const { data } = await api.post('/stripe/portal');
+      if (data.url) window.open(data.url, '_blank');
+    } catch { alert('No active subscription found.'); }
+    finally { setPortalLoading(false); }
+  }
+
+  const statusColor = org?.subscriptionStatus === 'active' ? '#15803d' : org?.subscriptionStatus === 'trialing' ? '#1e40af' : '#dc2626';
+  const statusBg = org?.subscriptionStatus === 'active' ? '#dcfce7' : org?.subscriptionStatus === 'trialing' ? '#eff6ff' : '#fee2e2';
+
+  return (
+    <div style={{ maxWidth: 620 }}>
+      <PageHeader title="Billing & Plan" subtitle="Manage your subscription and usage" />
+
+      {loading ? <p style={{ color: '#94a3b8', fontSize: 13 }}>Loading…</p> : org && (
+        <>
+          {/* Current plan card */}
+          <Card title="Current Plan">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', textTransform: 'capitalize' }}>{org.plan} Plan</div>
+                <span style={{ fontSize: 12, fontWeight: 700, background: statusBg, color: statusColor, padding: '3px 10px', borderRadius: 20, marginTop: 4, display: 'inline-block' }}>
+                  {org.subscriptionStatus === 'trialing' ? `Trial — ${daysLeft} day${daysLeft !== 1 ? 's' : ''} left` : org.subscriptionStatus}
+                </span>
+              </div>
+              {org.subscriptionStatus === 'active' && (
+                <button onClick={openPortal} disabled={portalLoading} style={{ padding: '8px 16px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#475569' }}>
+                  {portalLoading ? 'Loading…' : 'Manage Billing →'}
+                </button>
+              )}
+            </div>
+
+            {/* Usage */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[
+                { label: 'Users', used: org.usage.users, max: org.maxUsers },
+                { label: 'Loads this month', used: org.usage.loadsThisMonth, max: org.maxLoadsPerMonth },
+              ].map(({ label, used, max }) => {
+                const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
+                const warn = pct >= 80;
+                return (
+                  <div key={label} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{label}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: warn ? '#dc2626' : '#0f172a' }}>{used} / {max === 9999 || max === 999999 ? '∞' : max}</span>
+                    </div>
+                    <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3 }}>
+                      <div style={{ height: 6, width: `${pct}%`, background: warn ? '#dc2626' : primary, borderRadius: 3, transition: 'width 0.3s' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          {/* Plan cards */}
+          {org.subscriptionStatus !== 'active' && (
+            <Card title="Upgrade Your Plan">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                {plans.map(plan => (
+                  <div key={plan.id} style={{
+                    borderRadius: 12, border: plan.recommended ? `2px solid ${primary}` : '1px solid #e2e8f0',
+                    padding: '20px 16px', position: 'relative', background: plan.recommended ? '#eff6ff' : '#fff',
+                  }}>
+                    {plan.recommended && (
+                      <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: primary, color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+                        POPULAR
+                      </div>
+                    )}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{plan.name}</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: primary, marginBottom: 12 }}>${plan.price}<span style={{ fontSize: 13, fontWeight: 400, color: '#64748b' }}>/mo</span></div>
+                    {plan.features.map(f => (
+                      <div key={f} style={{ fontSize: 11, color: '#475569', marginBottom: 4 }}>✓ {f}</div>
+                    ))}
+                    <button
+                      onClick={() => checkout(plan.id)}
+                      disabled={upgrading === plan.id}
+                      style={{
+                        marginTop: 16, width: '100%', padding: '9px', background: plan.recommended ? primary : '#f1f5f9',
+                        color: plan.recommended ? '#fff' : '#0f172a', border: 'none', borderRadius: 8,
+                        fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: upgrading === plan.id ? 0.7 : 1,
+                      }}
+                    >
+                      {upgrading === plan.id ? 'Loading…' : 'Choose Plan'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 12, textAlign: 'center' }}>
+                All plans include a 14-day trial. Cancel anytime. Prices in USD.
+              </p>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 // ─── Security / 2FA Tab ───────────────────────────────────────────────────────
 function SecurityTab({ primary }: { primary: string }) {
