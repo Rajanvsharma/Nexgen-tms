@@ -112,6 +112,8 @@ model Organization {
   quotes        Quote[]
   loads         Load[]
   announcements Announcement[]
+  pods          ProofOfDelivery[]
+  accessorials  Accessorial[]
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -147,6 +149,8 @@ model User {
   ocrLogs           OcrLog[]
   conversations     Conversation[]
   convMessages      ConvMessage[]
+  pods              ProofOfDelivery[]
+  accessorials      Accessorial[]
 
   @@index([organizationId])
 }
@@ -345,6 +349,9 @@ model Load {
   documents           Document[]
   boardPostings       LoadBoardPosting[]
   conversations       Conversation[]
+  pods                ProofOfDelivery[]
+  accessorials        Accessorial[]
+  stops               LoadStop[]
 
   @@index([organizationId])
 }
@@ -610,4 +617,69 @@ model ConvMessage {
   attachmentName String?
   isInternal     Boolean      @default(false)
   createdAt      DateTime     @default(now())
+}
+
+// ─── Proof of Delivery ────────────────────────────────────────────────────────
+
+model ProofOfDelivery {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  loadId         String
+  load           Load         @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  filename       String
+  fileUrl        String
+  fileSize       Int?
+  podType        String       @default("POD")
+  notes          String?
+  uploadedById   String
+  uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([loadId])
+  @@index([organizationId])
+}
+
+// ─── Accessorial Charges ──────────────────────────────────────────────────────
+
+model Accessorial {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  loadId         String
+  load           Load         @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  type           String
+  amount         Float
+  billTo         String       @default("CUSTOMER")
+  description    String?
+  approved       Boolean      @default(false)
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([loadId])
+  @@index([organizationId])
+}
+
+// ─── Load Stops (Multi-stop) ──────────────────────────────────────────────────
+
+model LoadStop {
+  id              String    @id @default(cuid())
+  loadId          String
+  load            Load      @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  sequence        Int
+  type            String    @default("STOP")
+  city            String
+  state           String
+  address         String?
+  zipCode         String?
+  contactName     String?
+  contactPhone    String?
+  appointmentDate DateTime?
+  notes           String?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([loadId])
 }

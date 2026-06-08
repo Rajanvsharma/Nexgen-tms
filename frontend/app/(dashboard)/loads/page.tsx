@@ -298,6 +298,7 @@ export default function LoadsPage() {
                       </td>
                       <td style={{ padding: '12px' }}>
                         <div style={{ display: 'flex', gap: 4 }}>
+                          <a href={`/loads/${l.id}`} title="View Detail" style={{ padding: '5px 10px', background: '#dbeafe', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none' }}>View</a>
                           <button onClick={() => openEdit(l)} title="Edit" style={{ padding: '5px 10px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#475569', fontWeight: 600 }}>✏ Edit</button>
                           <button onClick={() => setVoiceLoad(l)} title="AI Negotiate" style={{ padding: '5px 10px', background: '#ede9fe', border: '1px solid #ddd6fe', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#7c3aed', fontWeight: 600 }}>🤖 AI</button>
                           <button onClick={() => setDeleteTarget(l)} title="Delete" style={{ padding: '5px 8px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#dc2626', fontWeight: 700 }}>✕</button>

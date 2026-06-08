@@ -28,6 +28,9 @@ const quickbooksRoutes = require('./routes/quickbooks.routes');
 const trackingRoutes = require('./routes/tracking.routes');
 const stripeRoutes = require('./routes/stripe.routes');
 const organizationRoutes = require('./routes/organization.routes');
+const podRoutes = require('./routes/pod.routes');
+const accessorialRoutes = require('./routes/accessorial.routes');
+const stopsRoutes = require('./routes/stops.routes');
 const { startAgentScheduler } = require('./services/agents.service');
 
 const app = express();
@@ -72,6 +75,9 @@ app.use('/api/quickbooks', quickbooksRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/organization', organizationRoutes);
+app.use('/api/loads/:loadId/pods', podRoutes);
+app.use('/api/loads/:loadId/accessorials', accessorialRoutes);
+app.use('/api/loads/:loadId/stops', stopsRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 

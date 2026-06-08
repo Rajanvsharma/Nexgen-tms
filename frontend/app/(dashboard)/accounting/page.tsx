@@ -65,11 +65,14 @@ interface AgingInvoice {
 
 export default function AccountingPage() {
   const { isLoading } = useRequireAuth();
-  const [tab, setTab] = useState<'invoices' | 'payments' | 'aging'>('invoices');
+  const [tab, setTab] = useState<'invoices' | 'payments' | 'aging' | '1099'>('invoices');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [aging, setAging] = useState<AgingBucket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [form1099Year, setForm1099Year] = useState(new Date().getFullYear() - 1);
+  const [data1099, setData1099] = useState<{ year: number; carriers: Array<{ carrierId: string; name: string; mcNumber: string; ein: string | null; address: string | null; total: number; paymentCount: number }> } | null>(null);
+  const [loading1099, setLoading1099] = useState(false);
   const [sending, setSending] = useState<string | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
   const [toast, setToast] = useState('');
@@ -117,6 +120,18 @@ export default function AccountingPage() {
       showToast(`Error: ${msg}`);
     } finally {
       setSending(null);
+    }
+  }
+
+  async function fetch1099() {
+    setLoading1099(true);
+    try {
+      const { data } = await api.get(`/accounting/1099?year=${form1099Year}`);
+      setData1099(data);
+    } catch {
+      showToast('Failed to generate 1099 report');
+    } finally {
+      setLoading1099(false);
     }
   }
 
@@ -175,10 +190,11 @@ export default function AccountingPage() {
               { key: 'invoices', label: `Customer Invoices (${invoices.length})` },
               { key: 'payments', label: `Carrier Payments (${payments.length})` },
               { key: 'aging', label: 'Aging Report' },
+              { key: '1099', label: '1099 Generation' },
             ].map((t) => (
               <button
                 key={t.key}
-                onClick={() => setTab(t.key as 'invoices' | 'payments' | 'aging')}
+                onClick={() => setTab(t.key as 'invoices' | 'payments' | 'aging' | '1099')}
                 className={`px-6 py-3 text-sm font-medium capitalize transition-colors border-b-2 ${tab === t.key ? 'border-brand text-brand' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
                 {t.label}
@@ -318,6 +334,58 @@ export default function AccountingPage() {
                 ))}
               </tbody>
             </table>
+          )}
+          {tab === '1099' && (
+            <div className="p-6 space-y-6">
+              <div className="flex items-end gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Tax Year</label>
+                  <select
+                    value={form1099Year}
+                    onChange={e => setForm1099Year(Number(e.target.value))}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none"
+                  >
+                    {[2026, 2025, 2024, 2023].map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <Button onClick={fetch1099} disabled={loading1099}>
+                  {loading1099 ? 'Generating…' : 'Generate 1099 Report'}
+                </Button>
+              </div>
+
+              {data1099 && (
+                <>
+                  <p className="text-sm text-gray-500">
+                    Carriers paid <span className="font-semibold text-gray-800">≥ $600</span> in {data1099.year} — {data1099.carriers.length} carrier(s) require a 1099-NEC.
+                  </p>
+                  {data1099.carriers.length === 0 ? (
+                    <p className="text-gray-400 text-sm py-8 text-center">No carriers exceeded the $600 threshold in {data1099.year}.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          {['Carrier', 'MC #', 'EIN', 'Address', 'Payments', 'Total Paid'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {data1099.carriers.map(c => (
+                          <tr key={c.carrierId} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-semibold text-gray-800">{c.name}</td>
+                            <td className="px-4 py-3 text-gray-500 font-mono">{c.mcNumber}</td>
+                            <td className="px-4 py-3 text-gray-500">{c.ein || <span className="text-red-500 text-xs font-semibold">Missing</span>}</td>
+                            <td className="px-4 py-3 text-gray-500">{c.address || '—'}</td>
+                            <td className="px-4 py-3 text-gray-600">{c.paymentCount}</td>
+                            <td className="px-4 py-3 font-bold text-gray-900">${c.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       </main>

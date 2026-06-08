@@ -199,4 +199,51 @@ async function sendInvoice(req, res) {
   }
 }
 
-module.exports = { getInvoices, createInvoice, updateInvoiceStatus, sendInvoice, getPayments, createPayment, updatePaymentStatus };
+async function generate1099(req, res) {
+  try {
+    const orgId     = req.user.organizationId;
+    const { year }  = req.query;
+    const taxYear   = parseInt(year) || new Date().getFullYear() - 1;
+
+    const start = new Date(`${taxYear}-01-01T00:00:00.000Z`);
+    const end   = new Date(`${taxYear + 1}-01-01T00:00:00.000Z`);
+
+    const payments = await prisma.carrierPayment.findMany({
+      where: {
+        load: { organizationId: orgId },
+        status: 'PAID',
+        paidDate: { gte: start, lt: end },
+      },
+      include: { carrier: true },
+    });
+
+    const byCarrier = {};
+    for (const p of payments) {
+      const { carrier } = p;
+      if (!byCarrier[carrier.id]) {
+        byCarrier[carrier.id] = {
+          carrierId:  carrier.id,
+          name:       carrier.name,
+          mcNumber:   carrier.mcNumber,
+          ein:        carrier.ein || null,
+          address:    carrier.address || null,
+          total:      0,
+          paymentCount: 0,
+        };
+      }
+      byCarrier[carrier.id].total        += Number(p.amount);
+      byCarrier[carrier.id].paymentCount += 1;
+    }
+
+    const rows = Object.values(byCarrier)
+      .filter(c => c.total >= 600)
+      .sort((a, b) => b.total - a.total);
+
+    res.json({ year: taxYear, carriers: rows });
+  } catch (err) {
+    console.error('generate1099 error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getInvoices, createInvoice, updateInvoiceStatus, sendInvoice, getPayments, createPayment, updatePaymentStatus, generate1099 };
