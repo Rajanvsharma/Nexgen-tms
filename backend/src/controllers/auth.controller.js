@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
+const { authenticator } = require('otplib');
 const { generateAccessToken, generateRefreshToken, rotateRefreshToken, deleteRefreshToken } = require('../services/token.service');
 const { sendPasswordResetEmail } = require('../services/outbound.service');
 
@@ -23,6 +24,14 @@ async function login(req, res) {
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: 'Invalid credentials' });
+
+    // 2FA check
+    if (user.totpEnabled) {
+      const { totpCode } = req.body;
+      if (!totpCode) return res.status(200).json({ requires2FA: true, message: 'Enter your 2FA code to continue' });
+      const totpValid = authenticator.verify({ token: totpCode, secret: user.totpSecret });
+      if (!totpValid) return res.status(401).json({ message: 'Invalid 2FA code' });
+    }
 
     const accessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role, customerId: user.customerId || null });
     const refreshToken = await generateRefreshToken(user.id);

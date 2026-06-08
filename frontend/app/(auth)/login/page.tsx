@@ -16,6 +16,8 @@ export default function LoginPage() {
   const { setUser } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [requires2FA, setRequires2FA] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,14 +25,21 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     if (!email || !password) { setError('Email and password are required'); return; }
+    if (requires2FA && !totpCode) { setError('Enter your 2FA code'); return; }
 
     setLoading(true);
     try {
       const { data } = await axios.post(
         process.env.NEXT_PUBLIC_API_URL + '/api/auth/login',
-        { email, password },
+        { email, password, totpCode: requires2FA ? totpCode : undefined },
         { withCredentials: true }
       );
+
+      if (data.requires2FA) {
+        setRequires2FA(true);
+        setLoading(false);
+        return;
+      }
       setAccessToken(data.accessToken);
       const { data: me } = await api.get('/auth/me');
       setUser(me, data.accessToken);
@@ -83,8 +92,25 @@ export default function LoginPage() {
             </div>
           )}
 
+          {requires2FA && (
+            <div className="space-y-1">
+              <Label htmlFor="totp">Authenticator Code</Label>
+              <Input
+                id="totp"
+                type="text"
+                inputMode="numeric"
+                placeholder="6-digit code"
+                maxLength={6}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                autoFocus
+              />
+              <p className="text-xs text-gray-500">Enter the code from your authenticator app</p>
+            </div>
+          )}
+
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? 'Signing in…' : requires2FA ? 'Verify & Sign In' : 'Sign In'}
           </Button>
 
           <div className="text-center">

@@ -5,10 +5,11 @@ import { useAuthStore, type AuthUser } from '@/store/auth.store';
 import { useBrandingStore, type BrandingConfig } from '@/store/branding.store';
 import api from '@/lib/api';
 
-type Tab = 'profile' | 'email' | 'notifications' | 'api' | 'system';
+type Tab = 'profile' | 'email' | 'notifications' | 'api' | 'system' | 'security';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'profile',       label: 'Profile',         icon: '◯' },
+  { id: 'security',      label: 'Security / 2FA',  icon: '🔒' },
   { id: 'email',         label: 'Email (IMAP)',     icon: '✉' },
   { id: 'notifications', label: 'Notifications',    icon: '🔔' },
   { id: 'api',           label: 'API Keys',         icon: '🔑' },
@@ -58,6 +59,7 @@ export default function SettingsPage() {
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 32 }}>
         {tab === 'profile'       && <ProfileTab user={user} setUser={setUser} primary={primary} />}
+        {tab === 'security'      && <SecurityTab primary={primary} />}
         {tab === 'email'         && <EmailTab primary={primary} />}
         {tab === 'notifications' && <NotificationsTab primary={primary} />}
         {tab === 'api'           && <ApiTab primary={primary} />}
@@ -456,3 +458,118 @@ const inp: React.CSSProperties = {
   borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box',
   background: '#fff',
 };
+
+// ─── Security / 2FA Tab ───────────────────────────────────────────────────────
+function SecurityTab({ primary }: { primary: string }) {
+  const [status, setStatus] = useState<'loading' | 'enabled' | 'disabled'>('loading');
+  const [qrCode, setQrCode] = useState('');
+  const [secret, setSecret] = useState('');
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [step, setStep] = useState<'idle' | 'setup' | 'disabling'>('idle');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.get('/auth/2fa/status').then(r => setStatus(r.data.enabled ? 'enabled' : 'disabled')).catch(() => setStatus('disabled'));
+  }, []);
+
+  async function startSetup() {
+    setLoading(true); setMsg(null);
+    try {
+      const { data } = await api.post('/auth/2fa/setup');
+      setQrCode(data.qrCode); setSecret(data.secret); setStep('setup');
+    } catch (e: unknown) {
+      setMsg({ type: 'err', text: (e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to start 2FA setup' });
+    } finally { setLoading(false); }
+  }
+
+  async function verifyCode() {
+    if (!code.trim()) { setMsg({ type: 'err', text: 'Enter the 6-digit code from your app' }); return; }
+    setLoading(true); setMsg(null);
+    try {
+      await api.post('/auth/2fa/verify', { code });
+      setStatus('enabled'); setStep('idle'); setQrCode(''); setSecret(''); setCode('');
+      setMsg({ type: 'ok', text: '2FA enabled! You will need your authenticator app on every login.' });
+    } catch (e: unknown) {
+      setMsg({ type: 'err', text: (e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Invalid code' });
+    } finally { setLoading(false); }
+  }
+
+  async function disable2FA() {
+    if (!code.trim()) { setMsg({ type: 'err', text: 'Enter your current 2FA code to disable' }); return; }
+    setLoading(true); setMsg(null);
+    try {
+      await api.post('/auth/2fa/disable', { code });
+      setStatus('disabled'); setStep('idle'); setCode('');
+      setMsg({ type: 'ok', text: '2FA disabled.' });
+    } catch (e: unknown) {
+      setMsg({ type: 'err', text: (e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Invalid code' });
+    } finally { setLoading(false); }
+  }
+
+  const card: React.CSSProperties = { background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, marginBottom: 20, maxWidth: 520 };
+  const btn = (bg: string): React.CSSProperties => ({ background: bg, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: loading ? 0.6 : 1 });
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Security & 2FA</h2>
+      <p style={{ color: '#64748b', fontSize: 13, marginBottom: 24 }}>Protect your account with two-factor authentication.</p>
+
+      {msg && (
+        <div style={{ background: msg.type === 'ok' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${msg.type === 'ok' ? '#bbf7d0' : '#fecaca'}`, borderRadius: 8, padding: '10px 14px', color: msg.type === 'ok' ? '#166534' : '#991b1b', fontSize: 13, marginBottom: 16 }}>
+          {msg.text}
+        </div>
+      )}
+
+      {status === 'loading' && <p style={{ color: '#94a3b8', fontSize: 13 }}>Loading…</p>}
+
+      {status === 'enabled' && step === 'idle' && (
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 20 }}>✅</span>
+            <span style={{ fontWeight: 600, color: '#166534' }}>Two-Factor Authentication is ON</span>
+          </div>
+          <p style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>Your account is protected. You need your authenticator app at every login.</p>
+          <button style={btn('#dc2626')} onClick={() => { setStep('disabling'); setCode(''); setMsg(null); }}>Disable 2FA</button>
+        </div>
+      )}
+
+      {status === 'enabled' && step === 'disabling' && (
+        <div style={card}>
+          <p style={{ fontWeight: 600, marginBottom: 12 }}>Enter your current 2FA code to disable:</p>
+          <input style={{ ...inp, marginBottom: 12 }} placeholder="6-digit code" value={code} maxLength={6} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} autoFocus />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={btn('#dc2626')} disabled={loading} onClick={disable2FA}>{loading ? 'Disabling…' : 'Confirm Disable'}</button>
+            <button style={{ ...btn('#64748b') }} onClick={() => { setStep('idle'); setMsg(null); }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {status === 'disabled' && step === 'idle' && (
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <span style={{ fontWeight: 600, color: '#92400e' }}>Two-Factor Authentication is OFF</span>
+          </div>
+          <p style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>Enable 2FA to add an extra layer of security. You&apos;ll need Google Authenticator or Authy.</p>
+          <button style={btn(primary)} disabled={loading} onClick={startSetup}>{loading ? 'Setting up…' : 'Enable 2FA'}</button>
+        </div>
+      )}
+
+      {status === 'disabled' && step === 'setup' && (
+        <div style={card}>
+          <p style={{ fontWeight: 600, marginBottom: 8 }}>Step 1 — Scan this QR code with your authenticator app</p>
+          {qrCode && <img src={qrCode} alt="2FA QR Code" style={{ width: 180, height: 180, display: 'block', margin: '12px 0' }} />}
+          <p style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Or enter this key manually:</p>
+          <code style={{ fontSize: 12, background: '#f1f5f9', padding: '4px 8px', borderRadius: 4, display: 'block', wordBreak: 'break-all', marginBottom: 16 }}>{secret}</code>
+          <p style={{ fontWeight: 600, marginBottom: 8 }}>Step 2 — Enter the 6-digit code to confirm</p>
+          <input style={{ ...inp, marginBottom: 12 }} placeholder="6-digit code from app" value={code} maxLength={6} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} autoFocus />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={btn(primary)} disabled={loading} onClick={verifyCode}>{loading ? 'Verifying…' : 'Verify & Enable'}</button>
+            <button style={{ ...btn('#64748b') }} onClick={() => { setStep('idle'); setQrCode(''); setSecret(''); setMsg(null); }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

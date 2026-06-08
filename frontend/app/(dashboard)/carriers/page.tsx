@@ -64,6 +64,18 @@ export default function CarriersPage() {
   const [saving, setSaving] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Carrier | null>(null);
+  const [safetyTarget, setSafetyTarget] = useState<Carrier | null>(null);
+  const [safetyData, setSafetyData] = useState<Record<string, unknown> | null>(null);
+  const [safetyLoading, setSafetyLoading] = useState(false);
+
+  async function runSafetyCheck(carrier: Carrier) {
+    setSafetyTarget(carrier); setSafetyData(null); setSafetyLoading(true);
+    try {
+      const { data } = await api.get(`/carriers/${carrier.id}/safety-check`);
+      setSafetyData(data);
+    } catch { setSafetyData({ error: 'Safety check failed' }); }
+    finally { setSafetyLoading(false); }
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -255,6 +267,7 @@ export default function CarriersPage() {
                       <td style={{ padding: '12px' }}>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button onClick={() => openEdit(c)} style={{ padding: '5px 10px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#475569', fontWeight: 600 }}>✏ Edit</button>
+                          <button onClick={() => runSafetyCheck(c)} style={{ padding: '5px 10px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#1d4ed8', fontWeight: 600 }}>🛡 FMCSA</button>
                           {c._count.loads === 0 && (
                             <button onClick={() => setDeleteTarget(c)} style={{ padding: '5px 8px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#dc2626', fontWeight: 700 }}>✕</button>
                           )}
@@ -344,6 +357,85 @@ export default function CarriersPage() {
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
         />
+      )}
+
+      {/* FMCSA Safety Check Modal */}
+      {safetyTarget && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center' }} onClick={() => setSafetyTarget(null)}>
+          <div style={{ background:'#fff',borderRadius:14,padding:28,width:520,maxHeight:'80vh',overflowY:'auto',boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16 }}>
+              <h3 style={{ fontWeight:700,fontSize:16,color:'#0f172a' }}>🛡 FMCSA Safety Check — {safetyTarget.name}</h3>
+              <button onClick={() => setSafetyTarget(null)} style={{ background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#94a3b8' }}>✕</button>
+            </div>
+
+            {safetyLoading && <p style={{ color:'#94a3b8',fontSize:13,textAlign:'center',padding:24 }}>Checking FMCSA records…</p>}
+
+            {!safetyLoading && safetyData && (
+              (safetyData as { error?: string }).error ? (
+                <p style={{ color:'#dc2626',fontSize:13 }}>{(safetyData as { error: string }).error}</p>
+              ) : (safetyData as { simulated?: boolean }).simulated ? (
+                <div>
+                  <p style={{ color:'#92400e',background:'#fef3c7',padding:'10px 14px',borderRadius:8,fontSize:13,marginBottom:12 }}>
+                    {(safetyData as { message?: string }).message}
+                  </p>
+                  {(safetyData as { manualCheckUrl?: string }).manualCheckUrl && (
+                    <a href={(safetyData as { manualCheckUrl: string }).manualCheckUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ color:'#1d4ed8',fontSize:13,textDecoration:'underline' }}>
+                      Check on FMCSA SAFER Web →
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontSize:13 }}>
+                  {/* Risk Banner */}
+                  {(safetyData as { riskLevel?: string }).riskLevel && (
+                    <div style={{
+                      padding:'10px 14px',borderRadius:8,marginBottom:16,fontWeight:700,fontSize:14,
+                      background: (safetyData as { riskLevel: string }).riskLevel === 'LOW' ? '#dcfce7' : (safetyData as { riskLevel: string }).riskLevel === 'MEDIUM' ? '#fef9c3' : '#fee2e2',
+                      color: (safetyData as { riskLevel: string }).riskLevel === 'LOW' ? '#15803d' : (safetyData as { riskLevel: string }).riskLevel === 'MEDIUM' ? '#92400e' : '#b91c1c',
+                    }}>
+                      Risk Level: {(safetyData as { riskLevel: string }).riskLevel}
+                      {(safetyData as { autoFlagged?: boolean }).autoFlagged && ' — Carrier auto-flagged for review'}
+                    </div>
+                  )}
+
+                  {/* Flags */}
+                  {Array.isArray((safetyData as { flags?: string[] }).flags) && (safetyData as { flags: string[] }).flags.length > 0 && (
+                    <div style={{ marginBottom:16 }}>
+                      <p style={{ fontWeight:600,marginBottom:6,color:'#dc2626' }}>⚠ Flags:</p>
+                      {(safetyData as { flags: string[] }).flags.map((f: string, i: number) => (
+                        <div key={i} style={{ background:'#fee2e2',color:'#b91c1c',padding:'4px 10px',borderRadius:6,fontSize:12,marginBottom:4 }}>{f}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Details Grid */}
+                  <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8 }}>
+                    {[
+                      ['Legal Name', (safetyData as Record<string,unknown>).legalName],
+                      ['Safety Rating', (safetyData as Record<string,unknown>).safetyRating],
+                      ['Operating Status', (safetyData as Record<string,unknown>).operatingStatus],
+                      ['Insurance', (safetyData as Record<string,unknown>).insuranceStatus],
+                      ['Total Drivers', (safetyData as Record<string,unknown>).totalDrivers],
+                      ['Power Units', (safetyData as Record<string,unknown>).totalPowerUnits],
+                      ['Total Crashes', (safetyData as Record<string,unknown>).crashTotal],
+                      ['Fatal Crashes', (safetyData as Record<string,unknown>).fatalCrash],
+                      ['OOS Driver Insp', (safetyData as Record<string,unknown>).driverOosInsp],
+                      ['OOS Vehicle Insp', (safetyData as Record<string,unknown>).vehicleOosInsp],
+                    ].map(([label, val]) => val != null && (
+                      <div key={String(label)} style={{ background:'#f8fafc',borderRadius:6,padding:'8px 10px' }}>
+                        <p style={{ fontSize:10,color:'#94a3b8',fontWeight:600,textTransform:'uppercase',marginBottom:2 }}>{String(label)}</p>
+                        <p style={{ fontSize:13,fontWeight:600,color:'#0f172a' }}>{String(val)}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p style={{ fontSize:11,color:'#94a3b8',marginTop:12 }}>Checked: {new Date((safetyData as { checkedAt?: string }).checkedAt || '').toLocaleString()}</p>
+                </div>
+              )
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

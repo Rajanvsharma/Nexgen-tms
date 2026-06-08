@@ -25,6 +25,7 @@ const consoleRoutes = require('./routes/console.routes');
 const portalRoutes = require('./routes/portal.routes');
 const brandingRoutes = require('./routes/branding.routes');
 const quickbooksRoutes = require('./routes/quickbooks.routes');
+const trackingRoutes = require('./routes/tracking.routes');
 const { startAgentScheduler } = require('./services/agents.service');
 
 const app = express();
@@ -62,6 +63,7 @@ app.use('/api/console', consoleRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/quickbooks', quickbooksRoutes);
+app.use('/api/tracking', trackingRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
