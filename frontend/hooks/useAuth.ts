@@ -11,12 +11,17 @@ export function useInitAuth() {
   const { setUser, logout } = useAuthStore();
 
   useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl || apiUrl === 'undefined') {
+      logout();
+      return;
+    }
     (async () => {
       try {
         const { data } = await axios.post(
-          process.env.NEXT_PUBLIC_API_URL + '/api/auth/refresh',
+          apiUrl + '/api/auth/refresh',
           {},
-          { withCredentials: true }
+          { withCredentials: true, timeout: 8000 }
         );
         setAccessToken(data.accessToken);
         const { data: me } = await api.get('/auth/me');
