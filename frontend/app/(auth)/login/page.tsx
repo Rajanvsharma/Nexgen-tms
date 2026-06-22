@@ -57,8 +57,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-dark to-brand">
       <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-brand">NexGen TMS</h1>
-          <p className="text-gray-500 mt-1 text-sm">Transportation Management System</p>
+          <div className="flex justify-center mb-3">
+            <img src="/transa-logo.svg" alt="Transa" className="h-16 w-auto" />
+          </div>
+          <p className="text-gray-500 mt-1 text-sm">Move Smarter. Deliver Better.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -67,7 +69,7 @@ export default function LoginPage() {
             <Input
               id="email"
               type="email"
-              placeholder="admin@nexgentms.com"
+              placeholder="admin@Transatms.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"

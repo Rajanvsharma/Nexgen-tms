@@ -8,6 +8,7 @@ import { VoiceNegotiateModal } from '@/components/ui/VoiceNegotiateModal';
 import { toast } from '@/store/toast.store';
 import { useBrandingStore } from '@/store/branding.store';
 import api from '@/lib/api';
+import { useSocket } from '@/hooks/useSocket';
 
 interface Load {
   id: string; loadNumber: string; status: string;
@@ -97,6 +98,57 @@ export default function LoadsPage() {
 
   const [voiceLoad, setVoiceLoad] = useState<Load | null>(null);
 
+  // ── Lane rate suggestion ────────────────────────────────────────────────────
+  const [laneRate, setLaneRate] = useState<{ avgRate: number | null; count: number; minRate: number | null; maxRate: number | null } | null>(null);
+
+  useEffect(() => {
+    const { pickupState, deliveryState } = form;
+    if (pickupState.length !== 2 || deliveryState.length !== 2 || !slideOpen) { setLaneRate(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await api.get(`/lanes?originState=${pickupState}&destinationState=${deliveryState}`);
+        setLaneRate(data.count > 0 ? data : null);
+      } catch { setLaneRate(null); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form.pickupState, form.deliveryState, slideOpen]);
+
+  // ── Bulk selection ──────────────────────────────────────────────────────────
+  const [selected,    setSelected]    = useState<Set<string>>(new Set());
+  const [bulkStatus,  setBulkStatus]  = useState('DISPATCHED');
+  const [bulking,     setBulking]     = useState(false);
+
+  function toggleSelect(id: string) {
+    setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function selectAll(ids: string[]) { setSelected(new Set(ids)); }
+  function clearSelection() { setSelected(new Set()); }
+
+  async function bulkAction(action: 'status' | 'invoice' | 'delete') {
+    if (!selected.size) return;
+    setBulking(true);
+    try {
+      const ids = Array.from(selected);
+      if (action === 'status') {
+        const { data } = await api.post('/loads/bulk/status', { ids, status: bulkStatus });
+        setLoads(ls => ls.map(l => ids.includes(l.id) ? { ...l, status: bulkStatus } : l));
+        toast.success(`Updated ${data.updated} loads to ${bulkStatus}`);
+      } else if (action === 'invoice') {
+        const { data } = await api.post('/loads/bulk/invoice', { ids });
+        toast.success(`Created ${data.invoicesCreated} invoice(s)`);
+        loadData();
+      } else if (action === 'delete') {
+        const { data } = await api.post('/loads/bulk/delete', { ids });
+        setLoads(ls => ls.filter(l => !ids.includes(l.id)));
+        toast.success(`Deleted ${data.deleted} load(s)`);
+      }
+      clearSelection();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Bulk action failed';
+      toast.error(msg);
+    } finally { setBulking(false); }
+  }
+
   const loadData = useCallback(async () => {
     try {
       const [lRes, cRes, carRes] = await Promise.all([
@@ -108,6 +160,28 @@ export default function LoadsPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Real-time WebSocket updates ─────────────────────────────────────────────
+  useSocket({
+    'load:created': (load) => {
+      const l = load as Load;
+      setLoads(ls => ls.some(x => x.id === l.id) ? ls : [l, ...ls]);
+    },
+    'load:updated': (load) => {
+      const l = load as Load;
+      setLoads(ls => ls.map(x => x.id === l.id ? l : x));
+    },
+    'load:deleted': (payload) => {
+      const { id } = payload as { id: string };
+      setLoads(ls => ls.filter(x => x.id !== id));
+    },
+    'loads:bulk-status': ({ ids, status }: { ids: string[]; status: string }) => {
+      setLoads(ls => ls.map(x => ids.includes(x.id) ? { ...x, status } : x));
+    },
+    'loads:bulk-delete': ({ ids }: { ids: string[] }) => {
+      setLoads(ls => ls.filter(x => !ids.includes(x.id)));
+    },
+  });
 
   function openCreate() {
     setEditing(null);
@@ -251,9 +325,32 @@ export default function LoadsPage() {
               <button onClick={openCreate} style={{ padding: '10px 20px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ New Load</button>
             </div>
           ) : (
+            {/* Bulk action bar */}
+            {selected.size > 0 && (
+              <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 9 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>{selected.size} load{selected.size !== 1 ? 's' : ''} selected</span>
+                <button onClick={clearSelection} style={{ fontSize: 11, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>Clear</button>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #bfdbfe', fontSize: 12, color: '#1d4ed8', background: '#fff' }}>
+                    {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABEL[s] || s}</option>)}
+                  </select>
+                  <button onClick={() => bulkAction('status')} disabled={bulking} style={{ padding: '6px 14px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: bulking ? 0.6 : 1 }}>Set Status</button>
+                  <button onClick={() => bulkAction('invoice')} disabled={bulking} style={{ padding: '6px 14px', background: '#5b21b6', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: bulking ? 0.6 : 1 }}>Invoice All</button>
+                  <button onClick={() => bulkAction('delete')} disabled={bulking} style={{ padding: '6px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: bulking ? 0.6 : 1 }}>Delete</button>
+                </div>
+              </div>
+            )}
+
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
+                  <th style={{ padding: '10px 8px', width: 36 }}>
+                    <input type="checkbox"
+                      checked={filtered.length > 0 && filtered.every(l => selected.has(l.id))}
+                      onChange={e => e.target.checked ? selectAll(filtered.map(l => l.id)) : clearSelection()}
+                      style={{ cursor: 'pointer', width: 14, height: 14 }}
+                    />
+                  </th>
                   {['Load #','Customer','Route','Equipment','Customer Rate','Carrier Rate','Margin','Pickup','Status','Actions'].map(h => (
                     <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
@@ -262,10 +359,14 @@ export default function LoadsPage() {
               <tbody>
                 {filtered.map(l => {
                   const st = STATUS_STYLE[l.status] || STATUS_STYLE.CREATED;
+                  const isChecked = selected.has(l.id);
                   return (
-                    <tr key={l.id} style={{ borderBottom: '1px solid #f1f5f9' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}>
+                    <tr key={l.id} style={{ borderBottom: '1px solid #f1f5f9', background: isChecked ? '#f0f9ff' : undefined }}
+                      onMouseEnter={e => { if (!isChecked) (e.currentTarget as HTMLElement).style.background = '#f8fafc'; }}
+                      onMouseLeave={e => { if (!isChecked) (e.currentTarget as HTMLElement).style.background = ''; }}>
+                      <td style={{ padding: '12px 8px' }}>
+                        <input type="checkbox" checked={isChecked} onChange={() => toggleSelect(l.id)} style={{ cursor: 'pointer', width: 14, height: 14 }} />
+                      </td>
                       <td style={{ padding: '12px', fontWeight: 700, color: primary }}>
                         {l.loadNumber}
                         {l.isDuplicate && <span style={{ marginLeft: 6, fontSize: 10, background: '#fef9c3', color: '#a16207', border: '1px solid #fde047', borderRadius: 4, padding: '1px 5px' }}>DUP</span>}
@@ -369,6 +470,13 @@ export default function LoadsPage() {
           </FormSection>
 
           <FormSection title="Rates">
+            {laneRate && (
+              <div style={{ padding: '8px 12px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 12, color: '#15803d', marginBottom: 8 }}>
+                <span style={{ fontWeight: 700 }}>Lane benchmark</span> {form.pickupState} → {form.deliveryState} · {laneRate.count} loads ·
+                Avg <strong>${Math.round(laneRate.avgRate || 0).toLocaleString()}</strong>{' '}
+                (${Math.round(laneRate.minRate || 0).toLocaleString()} – ${Math.round(laneRate.maxRate || 0).toLocaleString()})
+              </div>
+            )}
             <Row2>
               <Field label="Customer Rate ($) *"><input type="number" value={form.customerRate} onChange={e => setForm(f=>({...f,customerRate:e.target.value}))} style={inp} placeholder="3500" /></Field>
               <Field label="Carrier Rate ($)"><input type="number" value={form.carrierRate} onChange={e => setForm(f=>({...f,carrierRate:e.target.value}))} style={inp} placeholder="2800" /></Field>

@@ -1,9 +1,9 @@
-const Anthropic = require('@anthropic-ai/sdk');
+﻿const Anthropic = require('@anthropic-ai/sdk');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-const SYSTEM_PROMPT = `You are NexGen Copilot, an expert AI assistant built into the NexGen TMS (Transportation Management System). You help freight brokers, dispatchers, and operations staff with their daily tasks.
+const SYSTEM_PROMPT = `You are Transa Copilot, an expert AI assistant built into the Transa (Move Smarter. Deliver Better.). You help freight brokers, dispatchers, and operations staff with their daily tasks.
 
 You have real-time access to the company's data which is provided in each message as context.
 
@@ -86,29 +86,29 @@ STATS SUMMARY:
 
 ACTIVE LOADS (${activeLoads.length}):
 ${activeLoads.length === 0 ? 'None' : activeLoads.map(l =>
-  `• ${l.loadNumber} | ${l.status} | ${l.customer?.name} | ${l.pickupCity}, ${l.pickupState} → ${l.deliveryCity}, ${l.deliveryState} | ${l.equipment} | $${l.customerRate?.toLocaleString()} | Carrier: ${l.carrier?.name || 'Unassigned'}`
+  `â€¢ ${l.loadNumber} | ${l.status} | ${l.customer?.name} | ${l.pickupCity}, ${l.pickupState} â†’ ${l.deliveryCity}, ${l.deliveryState} | ${l.equipment} | $${l.customerRate?.toLocaleString()} | Carrier: ${l.carrier?.name || 'Unassigned'}`
 ).join('\n')}
 
 PENDING QUOTES (${recentQuotes.length}):
 ${recentQuotes.length === 0 ? 'None' : recentQuotes.map(q =>
-  `• ${q.quoteNumber} | ${q.customer?.name} | ${q.pickupCity}, ${q.pickupState} → ${q.deliveryCity}, ${q.deliveryState} | ${q.equipment} | $${q.rate?.toLocaleString()}`
+  `â€¢ ${q.quoteNumber} | ${q.customer?.name} | ${q.pickupCity}, ${q.pickupState} â†’ ${q.deliveryCity}, ${q.deliveryState} | ${q.equipment} | $${q.rate?.toLocaleString()}`
 ).join('\n')}
 
-COMPLIANCE ALERTS — EXPIRING DOCUMENTS (${expiringCarriers.length}):
+COMPLIANCE ALERTS â€” EXPIRING DOCUMENTS (${expiringCarriers.length}):
 ${expiringCarriers.length === 0 ? 'None' : expiringCarriers.map(c => {
   const insExp = c.insuranceExpiry ? Math.ceil((new Date(c.insuranceExpiry) - Date.now()) / 86400000) : null;
   const authExp = c.authorityExpiry ? Math.ceil((new Date(c.authorityExpiry) - Date.now()) / 86400000) : null;
-  return `• ${c.name} (MC: ${c.mcNumber}) | Insurance: ${insExp !== null ? `${insExp}d` : 'N/A'} | Authority: ${authExp !== null ? `${authExp}d` : 'N/A'} | W9: ${c.w9OnFile ? 'Yes' : 'NO'}`;
+  return `â€¢ ${c.name} (MC: ${c.mcNumber}) | Insurance: ${insExp !== null ? `${insExp}d` : 'N/A'} | Authority: ${authExp !== null ? `${authExp}d` : 'N/A'} | W9: ${c.w9OnFile ? 'Yes' : 'NO'}`;
 }).join('\n')}
 
 UNPAID INVOICES (${pendingInvoices.length}):
 ${pendingInvoices.length === 0 ? 'None' : pendingInvoices.map(i =>
-  `• ${i.invoiceNumber} | ${i.customer?.name} | Load: ${i.load?.loadNumber} | $${i.amount?.toLocaleString()} | ${i.status}`
+  `â€¢ ${i.invoiceNumber} | ${i.customer?.name} | Load: ${i.load?.loadNumber} | $${i.amount?.toLocaleString()} | ${i.status}`
 ).join('\n')}
 
 RECENT ANNOUNCEMENTS:
 ${recentAnnouncements.length === 0 ? 'None' : recentAnnouncements.map(a =>
-  `• ${a.title}: ${a.body}`
+  `â€¢ ${a.title}: ${a.body}`
 ).join('\n')}
 `;
   } catch (err) {

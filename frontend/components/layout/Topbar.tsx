@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { useBrandingStore } from '@/store/branding.store';
 import api from '@/lib/api';
+import GlobalSearch from '@/components/GlobalSearch';
 
 interface TopbarProps {
   title?: string;
+  subtitle?: string;
 }
 
-export default function Topbar({ title }: TopbarProps) {
+export default function Topbar({ title, subtitle }: TopbarProps) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const { branding } = useBrandingStore();
@@ -46,7 +48,15 @@ export default function Topbar({ title }: TopbarProps) {
       </div>
 
       {/* Page title (small) */}
-      {title && <span style={{ fontSize: 13, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>{title}</span>}
+      {title && (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{title}</span>
+          {subtitle && <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{subtitle}</span>}
+        </div>
+      )}
+
+      {/* Global search */}
+      <GlobalSearch />
 
       {/* Notification bell */}
       <button

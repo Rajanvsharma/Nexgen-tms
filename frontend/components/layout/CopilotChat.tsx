@@ -49,7 +49,7 @@ export default function CopilotChat() {
   const [open, setOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Hi! I\'m your NexGen Copilot. I have live access to your loads, carriers, quotes, and compliance data. How can I help you today?' }
+    { role: 'assistant', content: 'Hi! I\'m your Transa Copilot. I have live access to your loads, carriers, quotes, and compliance data. How can I help you today?' }
   ]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -182,7 +182,7 @@ export default function CopilotChat() {
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
               <div>
-                <p className="font-semibold text-sm">NexGen Copilot</p>
+                <p className="font-semibold text-sm">Transa Copilot</p>
                 <p className="text-xs text-blue-200">Powered by Claude AI · Live TMS data</p>
               </div>
             </div>

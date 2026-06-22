@@ -198,7 +198,7 @@ export function VoiceNegotiateModal({ load, onClose, onDeal }: Props) {
                   <span style={{ fontSize: 10, fontWeight: 600, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 6px' }}>DEMO</span>
                 )}
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>NexGen TMS · Carrier Rate Negotiation</div>
+              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>Transa · Carrier Rate Negotiation</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ color: '#22c55e', fontFamily: 'monospace', fontSize: 18, fontWeight: 700 }}>

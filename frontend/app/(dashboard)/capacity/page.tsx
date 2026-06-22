@@ -216,7 +216,7 @@ export default function CapacityPage() {
         <div style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 50%, #1e3a8a 100%)', padding: '28px 26px 24px', color: '#fff' }}>
           <div style={{ maxWidth: 900 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '3px 10px', letterSpacing: '0.5px' }}>NEXGEN CAPACITY</span>
+              <span style={{ fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '3px 10px', letterSpacing: '0.5px' }}>Transa CAPACITY</span>
             </div>
             <h1 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 700, letterSpacing: '-0.5px', lineHeight: 1.2 }}>
               Create loads instantly.<br />Access broader capacity. Cover more freight.

@@ -71,7 +71,7 @@ export default function RegisterPage() {
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#1e3a8a', marginBottom: 4 }}>NexGen TMS</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: '#1e3a8a', marginBottom: 4 }}>Transa</div>
           <div style={{ fontSize: 14, color: '#64748b' }}>Start your 14-day free trial — no credit card required</div>
         </div>
 

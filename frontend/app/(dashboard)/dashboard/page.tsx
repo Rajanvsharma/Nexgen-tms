@@ -149,7 +149,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#15202b' }}>{user?.firstName} {user?.lastName}</div>
-              <div style={{ fontSize: 10, color: '#94a3b8' }}>NexGen Logistics</div>
+              <div style={{ fontSize: 10, color: '#94a3b8' }}>Transa Logistics</div>
             </div>
           </div>
         </div>

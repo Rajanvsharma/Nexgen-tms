@@ -50,7 +50,7 @@ export default function TrialBanner() {
     }}>
       <span>
         {expired
-          ? '⚠ Your trial has expired. Upgrade to continue using NexGen TMS.'
+          ? '⚠ Your trial has expired. Upgrade to continue using Transa.'
           : `⏰ Trial: ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining. Upgrade to keep your data and features.`}
       </span>
       <button

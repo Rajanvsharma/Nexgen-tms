@@ -1,4 +1,4 @@
-const Anthropic = require('@anthropic-ai/sdk');
+﻿const Anthropic = require('@anthropic-ai/sdk');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -22,7 +22,7 @@ async function callClaude(system, prompt, maxTokens = 512) {
   return msg.content[0].text;
 }
 
-// ─── Rate Intelligence ────────────────────────────────────────────────────────
+// â”€â”€â”€ Rate Intelligence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getRateSuggestion(req, res) {
   try {
@@ -44,12 +44,12 @@ async function getRateSuggestion(req, res) {
     });
 
     const laneData = recentLoads.length > 0
-      ? `Recent ${pickupCity}→${deliveryCity} ${equipment} loads: ${recentLoads.map(l => `$${l.customerRate} (carrier: $${l.carrierRate || 'N/A'})`).join(', ')}`
+      ? `Recent ${pickupCity}â†’${deliveryCity} ${equipment} loads: ${recentLoads.map(l => `$${l.customerRate} (carrier: $${l.carrierRate || 'N/A'})`).join(', ')}`
       : `No historical data for this lane.`;
 
     const response = await callClaude(
       'You are a freight rate intelligence engine for a US trucking brokerage. Provide concise, actionable rate recommendations.',
-      `Lane: ${pickupCity}, ${pickupState} → ${deliveryCity}, ${deliveryState}
+      `Lane: ${pickupCity}, ${pickupState} â†’ ${deliveryCity}, ${deliveryState}
 Equipment: ${equipment}
 Weight: ${weight || 'unknown'} lbs
 Commodity: ${commodity || 'general freight'}
@@ -73,7 +73,7 @@ Provide a JSON response with: { "suggestedCustomerRate": number, "suggestedCarri
   }
 }
 
-// ─── Email Composer ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Email Composer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function composeEmail(req, res) {
   try {
@@ -100,7 +100,7 @@ async function composeEmail(req, res) {
   }
 }
 
-// ─── Fraud Scanner ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Fraud Scanner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function fraudScan(req, res) {
   try {
@@ -152,7 +152,7 @@ Return JSON: { "riskScore": 0-100, "riskLevel": "low"|"medium"|"high"|"critical"
   }
 }
 
-// ─── Business Insights ────────────────────────────────────────────────────────
+// â”€â”€â”€ Business Insights â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getInsights(req, res) {
   try {
@@ -203,7 +203,7 @@ async function getInsights(req, res) {
   }
 }
 
-// ─── Load Summary ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Load Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getLoadSummary(req, res) {
   try {
@@ -223,7 +223,7 @@ async function getLoadSummary(req, res) {
     const marginPct = load.customerRate > 0 ? Math.round(margin / load.customerRate * 100) : 0;
 
     const context = `Load ${load.loadNumber}:
-Route: ${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}
+Route: ${load.pickupCity}, ${load.pickupState} â†’ ${load.deliveryCity}, ${load.deliveryState}
 Customer: ${load.customer.name}
 Carrier: ${load.carrier?.name || 'Unassigned'}
 Status: ${load.status}
@@ -256,7 +256,7 @@ Invoice: ${load.invoice ? `${load.invoice.status} - $${load.invoice.amount}` : '
   }
 }
 
-// ─── Margin Optimizer ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Margin Optimizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function optimizeMargin(req, res) {
   try {
@@ -278,7 +278,7 @@ async function optimizeMargin(req, res) {
 ${lowMargin.map(l => {
   const m = l.customerRate - (l.carrierRate || 0);
   const pct = Math.round(m / l.customerRate * 100);
-  return `${l.loadNumber}: ${l.customer.name}, ${l.pickupCity}→${l.deliveryCity}, customer $${l.customerRate}, carrier $${l.carrierRate}, margin ${pct}%`;
+  return `${l.loadNumber}: ${l.customer.name}, ${l.pickupCity}â†’${l.deliveryCity}, customer $${l.customerRate}, carrier $${l.carrierRate}, margin ${pct}%`;
 }).join('\n')}
 
 For each load, suggest specific actions to improve margin. Return JSON array: [{ "loadNumber": "string", "currentMarginPct": number, "suggestions": ["specific actions"], "priorityAction": "string" }]`,
@@ -299,7 +299,7 @@ For each load, suggest specific actions to improve margin. Return JSON array: [{
   }
 }
 
-// ─── Agent Logs ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Agent Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getAgentLogs(req, res) {
   try {
@@ -322,7 +322,7 @@ async function triggerAgent(req, res) {
   }
 }
 
-// ─── Voice Negotiation ────────────────────────────────────────────────────────
+// â”€â”€â”€ Voice Negotiation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getDemoNegotiateResponse(messages, load, targetRate, maxRate) {
   const pickupStr = load.pickupDate
@@ -338,30 +338,30 @@ function getDemoNegotiateResponse(messages, load, targetRate, maxRate) {
     if (rateMatch) {
       const mentioned = parseFloat(rateMatch[1]);
       if (mentioned <= targetRate) {
-        return { reply: `Perfect — deal at $${mentioned}. I'll send the rate confirmation over to you shortly!`, dealReached: true, agreedRate: mentioned, demoMode: true };
+        return { reply: `Perfect â€” deal at $${mentioned}. I'll send the rate confirmation over to you shortly!`, dealReached: true, agreedRate: mentioned, demoMode: true };
       }
       if (mentioned <= maxRate) {
         return { reply: `Alright, we can make $${mentioned} work. Deal at $${mentioned}. Rate con coming your way within the hour.`, dealReached: true, agreedRate: mentioned, demoMode: true };
       }
       if (turnCount >= 3) {
-        return { reply: `Appreciate your time, but we can't go above $${maxRate} on this one. We'll need to look at other options — thanks!`, dealReached: false, agreedRate: null, demoMode: true };
+        return { reply: `Appreciate your time, but we can't go above $${maxRate} on this one. We'll need to look at other options â€” thanks!`, dealReached: false, agreedRate: null, demoMode: true };
       }
       const counter = Math.min(targetRate + Math.round((mentioned - targetRate) * 0.35 / 50) * 50, maxRate);
-      return { reply: `That's a bit over our ceiling on this lane. Best I can do is $${counter} — clean no-touch load. Does that work?`, dealReached: false, agreedRate: null, demoMode: true };
+      return { reply: `That's a bit over our ceiling on this lane. Best I can do is $${counter} â€” clean no-touch load. Does that work?`, dealReached: false, agreedRate: null, demoMode: true };
     }
   }
 
   if (turnCount === 0) {
     return {
-      reply: `Hi, this is Alex from NexGen TMS. I have a ${load.equipment} load — ${load.pickupCity}, ${load.pickupState} to ${load.deliveryCity}, ${load.deliveryState}, picking up ${pickupStr}. We're looking at $${targetRate}. Does that work for your truck?`,
+      reply: `Hi, this is Alex from Transa. I have a ${load.equipment} load â€” ${load.pickupCity}, ${load.pickupState} to ${load.deliveryCity}, ${load.deliveryState}, picking up ${pickupStr}. We're looking at $${targetRate}. Does that work for your truck?`,
       dealReached: false, agreedRate: null, demoMode: true,
     };
   }
 
   const counters = [
-    `We're tight on margin here. I can go up to $${targetRate + 100} — solid lane, no issues. Any chance that works?`,
+    `We're tight on margin here. I can go up to $${targetRate + 100} â€” solid lane, no issues. Any chance that works?`,
     `How about $${Math.round((targetRate + maxRate) / 2 / 50) * 50}? I really want to get this truck booked today.`,
-    `Last offer — $${maxRate - 50}. That's our ceiling on this load.`,
+    `Last offer â€” $${maxRate - 50}. That's our ceiling on this load.`,
     `Sorry, we've hit our limit. I'll need to look at other options. Thanks for your time!`,
   ];
   return { reply: counters[Math.min(turnCount - 1, counters.length - 1)], dealReached: false, agreedRate: null, demoMode: true };
@@ -390,11 +390,11 @@ async function negotiateRate(req, res) {
       ? new Date(load.pickupDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       : 'ASAP';
 
-    const system = `You are Alex, a professional freight broker at NexGen TMS negotiating carrier rates by phone.
+    const system = `You are Alex, a professional freight broker at Transa negotiating carrier rates by phone.
 
-Load details (CONFIDENTIAL — never reveal the customer rate):
+Load details (CONFIDENTIAL â€” never reveal the customer rate):
 - Load: ${load.loadNumber}
-- Route: ${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}
+- Route: ${load.pickupCity}, ${load.pickupState} â†’ ${load.deliveryCity}, ${load.deliveryState}
 - Equipment: ${load.equipment}
 - Commodity: ${load.commodity || 'General freight'}
 - Weight: ${load.weight ? load.weight + ' lbs' : 'TBD'}
@@ -404,11 +404,11 @@ Load details (CONFIDENTIAL — never reveal the customer rate):
 
 Rules:
 - First turn: introduce yourself and offer $${targetRate}
-- If carrier rate ≤ $${targetRate}: accept immediately
+- If carrier rate â‰¤ $${targetRate}: accept immediately
 - If carrier rate between $${targetRate + 1} and $${maxRate}: negotiate up in $50-100 steps
 - If carrier asks > $${maxRate}: say you'll need to look at other carriers
 - When deal is final, include exactly: "Deal at $AMOUNT."
-- Keep every reply to 1-2 sentences MAX — this is a phone call
+- Keep every reply to 1-2 sentences MAX â€” this is a phone call
 - Respond only as Alex`;
 
     const claudeMessages = (messages || []).length === 0

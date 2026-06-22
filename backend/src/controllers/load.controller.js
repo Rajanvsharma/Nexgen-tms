@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { emitToOrg }   = require('../services/socket.service');
 const prisma = new PrismaClient();
 
 const LOAD_INCLUDE = {
@@ -103,6 +104,7 @@ async function createLoad(req, res) {
       },
       include: LOAD_INCLUDE,
     });
+    emitToOrg(orgId, 'load:created', load);
     res.status(201).json(load);
   } catch (err) {
     console.error('createLoad error:', err);
@@ -140,6 +142,7 @@ async function updateLoad(req, res) {
     if (cust && carr) data.margin = parseFloat(((cust - carr) / cust * 100).toFixed(2));
 
     const load = await prisma.load.update({ where: { id: req.params.id }, data, include: LOAD_INCLUDE });
+    emitToOrg(orgId, 'load:updated', load);
     res.json(load);
   } catch (err) {
     console.error('updateLoad error:', err);
@@ -154,6 +157,7 @@ async function deleteLoad(req, res) {
     if (!load) return res.status(404).json({ message: 'Load not found' });
     if (load.invoice) return res.status(400).json({ message: 'Cannot delete a load that has an invoice. Void the invoice first.' });
     await prisma.load.delete({ where: { id } });
+    emitToOrg(req.user.organizationId, 'load:deleted', { id });
     res.json({ message: 'Load deleted' });
   } catch (err) {
     console.error('deleteLoad error:', err);

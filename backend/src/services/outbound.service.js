@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+﻿const nodemailer = require('nodemailer');
 
 function getTransporter() {
   if (!process.env.SMTP_HOST) return null;
@@ -10,13 +10,13 @@ function getTransporter() {
   });
 }
 
-const FROM = () => process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@nexgentms.com';
+const FROM = () => process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@Transatms.com';
 const BASE = () => (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 async function sendMail(options) {
   const transporter = getTransporter();
   if (!transporter) {
-    console.log('[Outbound Email - SMTP not configured]', options.subject, '→', options.to);
+    console.log('[Outbound Email - SMTP not configured]', options.subject, 'â†’', options.to);
     return { simulated: true };
   }
   return transporter.sendMail({ from: FROM(), ...options });
@@ -27,7 +27,7 @@ async function sendInvoiceEmail({ invoice, load, customer, pdfBuffer }) {
   const due = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'Net 30';
   return sendMail({
     to: customer.email,
-    subject: `Invoice ${invoice.invoiceNumber} from NexGen TMS`,
+    subject: `Invoice ${invoice.invoiceNumber} from Transa`,
     html: `
       <div style="font-family:sans-serif;max-width:600px">
         <h2 style="color:#1e40af">Invoice ${invoice.invoiceNumber}</h2>
@@ -36,10 +36,10 @@ async function sendInvoiceEmail({ invoice, load, customer, pdfBuffer }) {
         <table style="width:100%;border-collapse:collapse;margin:16px 0">
           <tr><td style="padding:8px;background:#f3f4f6;font-weight:600">Amount Due</td><td style="padding:8px">${amount}</td></tr>
           <tr><td style="padding:8px;background:#f3f4f6;font-weight:600">Due Date</td><td style="padding:8px">${due}</td></tr>
-          <tr><td style="padding:8px;background:#f3f4f6;font-weight:600">Route</td><td style="padding:8px">${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}</td></tr>
+          <tr><td style="padding:8px;background:#f3f4f6;font-weight:600">Route</td><td style="padding:8px">${load.pickupCity}, ${load.pickupState} â†’ ${load.deliveryCity}, ${load.deliveryState}</td></tr>
         </table>
         <p>Questions? Reply to this email.</p>
-        <p style="color:#6b7280;font-size:12px">NexGen TMS · Transportation Management System</p>
+        <p style="color:#6b7280;font-size:12px">Transa Â· Move Smarter. Deliver Better.</p>
       </div>`,
     attachments: pdfBuffer ? [{ filename: `${invoice.invoiceNumber}.pdf`, content: pdfBuffer }] : [],
   });
@@ -49,10 +49,10 @@ async function sendRateConfirmationEmail({ load, carrier, signUrl, pdfBuffer }) 
   const rate = `$${Number(load.carrierRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
   return sendMail({
     to: carrier.email,
-    subject: `Rate Confirmation — Load ${load.loadNumber}`,
+    subject: `Rate Confirmation â€” Load ${load.loadNumber}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px">
-        <h2 style="color:#1e40af">Rate Confirmation — ${load.loadNumber}</h2>
+        <h2 style="color:#1e40af">Rate Confirmation â€” ${load.loadNumber}</h2>
         <p>Dear ${carrier.name},</p>
         <p>Please review and sign the rate confirmation for the following load.</p>
         <table style="width:100%;border-collapse:collapse;margin:16px 0">
@@ -64,7 +64,7 @@ async function sendRateConfirmationEmail({ load, carrier, signUrl, pdfBuffer }) 
         </table>
         ${signUrl ? `<p><a href="${signUrl}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:600">Sign Rate Confirmation</a></p>` : ''}
         <p>The rate confirmation PDF is attached for your records.</p>
-        <p style="color:#6b7280;font-size:12px">NexGen TMS · Transportation Management System</p>
+        <p style="color:#6b7280;font-size:12px">Transa Â· Move Smarter. Deliver Better.</p>
       </div>`,
     attachments: pdfBuffer ? [{ filename: `rate-confirmation-${load.loadNumber}.pdf`, content: pdfBuffer }] : [],
   });
@@ -73,18 +73,18 @@ async function sendRateConfirmationEmail({ load, carrier, signUrl, pdfBuffer }) 
 async function sendLoadStatusUpdate({ load, toEmail, toName, status, message }) {
   return sendMail({
     to: toEmail,
-    subject: `Load ${load.loadNumber} — Status: ${status}`,
+    subject: `Load ${load.loadNumber} â€” Status: ${status}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px">
-        <h2 style="color:#1e40af">Load Update — ${load.loadNumber}</h2>
+        <h2 style="color:#1e40af">Load Update â€” ${load.loadNumber}</h2>
         <p>Dear ${toName},</p>
         <p>Load <strong>${load.loadNumber}</strong> status has been updated to <strong>${status}</strong>.</p>
         ${message ? `<p>${message}</p>` : ''}
         <table style="width:100%;border-collapse:collapse;margin:16px 0">
-          <tr><td style="padding:8px;background:#f3f4f6;font-weight:600">Route</td><td style="padding:8px">${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}</td></tr>
-          ${load.driverName ? `<tr><td style="padding:8px;background:#f3f4f6;font-weight:600">Driver</td><td style="padding:8px">${load.driverName}${load.driverPhone ? ` · ${load.driverPhone}` : ''}</td></tr>` : ''}
+          <tr><td style="padding:8px;background:#f3f4f6;font-weight:600">Route</td><td style="padding:8px">${load.pickupCity}, ${load.pickupState} â†’ ${load.deliveryCity}, ${load.deliveryState}</td></tr>
+          ${load.driverName ? `<tr><td style="padding:8px;background:#f3f4f6;font-weight:600">Driver</td><td style="padding:8px">${load.driverName}${load.driverPhone ? ` Â· ${load.driverPhone}` : ''}</td></tr>` : ''}
         </table>
-        <p style="color:#6b7280;font-size:12px">NexGen TMS · Transportation Management System</p>
+        <p style="color:#6b7280;font-size:12px">Transa Â· Move Smarter. Deliver Better.</p>
       </div>`,
   });
 }
@@ -92,7 +92,7 @@ async function sendLoadStatusUpdate({ load, toEmail, toName, status, message }) 
 async function sendPasswordResetEmail({ toEmail, firstName, resetUrl }) {
   return sendMail({
     to: toEmail,
-    subject: 'NexGen TMS — Password Reset',
+    subject: 'Transa â€” Password Reset',
     html: `
       <div style="font-family:sans-serif;max-width:600px">
         <h2 style="color:#1e40af">Password Reset</h2>

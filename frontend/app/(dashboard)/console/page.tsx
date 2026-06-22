@@ -158,7 +158,7 @@ export default function ConsolePage() {
 
       {/* ── Top bar ── */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', height: 56, display: 'flex', alignItems: 'center', gap: 14, padding: '0 20px', flexShrink: 0 }}>
-        <div style={{ fontSize: 11, color: '#94a3b8' }}>Home &rsaquo; <span style={{ color: '#15202b' }}>NexGen Console</span></div>
+        <div style={{ fontSize: 11, color: '#94a3b8' }}>Home &rsaquo; <span style={{ color: '#15202b' }}>Transa Console</span></div>
         <div style={{ flex: 1 }} />
         <input
           value={search}
@@ -170,7 +170,7 @@ export default function ConsolePage() {
 
       {/* ── Page header ── */}
       <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
-        <h1 style={{ margin: '0 0 14px', fontSize: 22, fontWeight: 800, letterSpacing: '-0.4px', color: '#15202b' }}>NexGen Console</h1>
+        <h1 style={{ margin: '0 0 14px', fontSize: 22, fontWeight: 800, letterSpacing: '-0.4px', color: '#15202b' }}>Transa Console</h1>
 
         {/* Status filter tabs */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 0 }}>

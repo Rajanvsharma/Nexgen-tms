@@ -376,7 +376,7 @@ function SystemTab({ primary, branding }: { primary: string; branding: BrandingC
 
       <Card title="Platform Info">
         {[
-          ['Version',     'NexGen TMS v2.0'],
+          ['Version',     'Transa v2.0'],
           ['Environment', process.env.NODE_ENV || 'development'],
           ['API Base',    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'],
           ['Plan',        branding.plan],

@@ -82,7 +82,7 @@ export default function CustomerPortalPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="bg-brand text-white px-6 py-5 shadow-sm">
-        <h1 className="text-xl font-bold">NexGen TMS — Customer Portal</h1>
+        <h1 className="text-xl font-bold">Transa — Customer Portal</h1>
         <p className="text-blue-200 text-sm mt-0.5">Track your shipments, invoices, and quotes</p>
       </div>
 

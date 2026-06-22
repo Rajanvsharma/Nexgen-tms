@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -112,8 +113,9 @@ model Organization {
   quotes        Quote[]
   loads         Load[]
   announcements Announcement[]
-  pods          ProofOfDelivery[]
-  accessorials  Accessorial[]
+  pods             ProofOfDelivery[]
+  accessorials     Accessorial[]
+  webhookEndpoints WebhookEndpoint[]
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -496,15 +498,60 @@ model Note {
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  action     String
-  entity     String
-  entityId   String?
-  detail     String?
-  ip         String?
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  action         String
+  entity         String
+  entityId       String?
+  detail         String?
+  before         Json?
+  after          Json?
+  ip             String?
+  userAgent      String?
+  requestId      String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// ─── Webhooks ─────────────────────────────────────────────────────────────────
+
+model WebhookEndpoint {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  url            String
+  secret         String
+  events         String[]
+  isActive       Boolean           @default(true)
+  description    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deliveries     WebhookDelivery[]
+
+  @@index([organizationId])
+}
+
+model WebhookDelivery {
+  id                String          @id @default(cuid())
+  webhookEndpointId String
+  endpoint          WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Cascade)
+  event             String
+  payload           Json
+  statusCode        Int?
+  responseBody      String?
+  success           Boolean         @default(false)
+  attemptCount      Int             @default(0)
+  nextRetryAt       DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime        @default(now())
+
+  @@index([webhookEndpointId])
+  @@index([createdAt])
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────

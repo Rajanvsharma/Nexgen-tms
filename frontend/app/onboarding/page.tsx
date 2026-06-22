@@ -114,7 +114,7 @@ export default function OnboardingPage() {
             <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
             <h2 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>You&apos;re all set!</h2>
             <p style={{ color: '#64748b', fontSize: 14, marginBottom: 32 }}>
-              Your NexGen TMS is ready. You have <strong>14 days</strong> to explore everything free.
+              Your Transa is ready. You have <strong>14 days</strong> to explore everything free.
               No credit card needed until your trial ends.
             </p>
 

@@ -42,7 +42,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   companyName: '',
-  tagline: 'Transportation Management System',
+  tagline: 'Move Smarter. Deliver Better.',
   logoData: null,
   primaryColor: '#3b82f6',
   darkColor: '#1d4ed8',

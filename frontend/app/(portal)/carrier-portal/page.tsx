@@ -65,7 +65,7 @@ export default function CarrierPortalPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="bg-brand text-white px-6 py-5 shadow-sm">
-        <h1 className="text-xl font-bold">NexGen TMS — Carrier Portal</h1>
+        <h1 className="text-xl font-bold">Transa — Carrier Portal</h1>
         <p className="text-blue-200 text-sm mt-0.5">View your assigned loads and payment status</p>
       </div>
 

@@ -28,7 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500 text-sm animate-pulse">Loading NexGen TMS…</div>
+        <div className="text-gray-500 text-sm animate-pulse">Loading Transa…</div>
       </div>
     );
   }

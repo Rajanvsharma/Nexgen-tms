@@ -1,7 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// ─── GET branding by domain (public — no auth needed) ────────────────────────
+// â”€â”€â”€ GET branding by domain (public â€” no auth needed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function getBranding(req, res) {
   try {
     const { domain } = req.query;
@@ -25,7 +25,7 @@ async function getBranding(req, res) {
   }
 }
 
-// ─── GET all branding configs (admin) ────────────────────────────────────────
+// â”€â”€â”€ GET all branding configs (admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function getAllBranding(req, res) {
   try {
     const configs = await prisma.brandingConfig.findMany({ orderBy: { createdAt: 'asc' } });
@@ -35,7 +35,7 @@ async function getAllBranding(req, res) {
   }
 }
 
-// ─── CREATE branding config (new tenant) ─────────────────────────────────────
+// â”€â”€â”€ CREATE branding config (new tenant) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function createBranding(req, res) {
   try {
     const { companyName, tagline, primaryColor, darkColor, sidebarBg, accentColor, domain, plan, planExpiresAt, contactName, contactEmail, isDefault } = req.body;
@@ -47,7 +47,7 @@ async function createBranding(req, res) {
 
     const config = await prisma.brandingConfig.create({
       data: {
-        companyName, tagline: tagline || 'Transportation Management System',
+        companyName, tagline: tagline || 'Move Smarter. Deliver Better.',
         primaryColor: primaryColor || '#3b82f6', darkColor: darkColor || '#1d4ed8',
         sidebarBg: sidebarBg || '#0d1b2a', accentColor: accentColor || '#22c55e',
         domain: domain || null, plan: plan || 'professional',
@@ -62,7 +62,7 @@ async function createBranding(req, res) {
   }
 }
 
-// ─── UPDATE branding config ───────────────────────────────────────────────────
+// â”€â”€â”€ UPDATE branding config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function updateBranding(req, res) {
   try {
     const { id } = req.params;
@@ -95,7 +95,7 @@ async function updateBranding(req, res) {
   }
 }
 
-// ─── DELETE branding config ───────────────────────────────────────────────────
+// â”€â”€â”€ DELETE branding config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function deleteBranding(req, res) {
   try {
     const { id } = req.params;
@@ -110,7 +110,7 @@ async function deleteBranding(req, res) {
 
 function defaultBranding() {
   return {
-    id: null, companyName: 'NexGen TMS', tagline: 'Transportation Management System',
+    id: null, companyName: 'Transa', tagline: 'Move Smarter. Deliver Better.',
     logoData: null, primaryColor: '#3b82f6', darkColor: '#1d4ed8',
     sidebarBg: '#0d1b2a', accentColor: '#22c55e', plan: 'enterprise',
     isDefault: true, isActive: true,

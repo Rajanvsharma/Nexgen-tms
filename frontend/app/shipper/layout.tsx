@@ -39,7 +39,7 @@ export default function ShipperLayout({ children }: { children: React.ReactNode 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 32, height: 32, background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)', borderRadius: 8, display: 'grid', placeItems: 'center', fontWeight: 800, color: '#fff', fontSize: 15 }}>N</div>
           <div>
-            <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>NexGen TMS</span>
+            <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Transa</span>
             <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginLeft: 8 }}>Shipper Portal</span>
           </div>
         </div>

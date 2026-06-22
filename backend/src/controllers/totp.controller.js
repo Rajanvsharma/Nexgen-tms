@@ -1,4 +1,4 @@
-const { authenticator } = require('otplib');
+﻿const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -12,7 +12,7 @@ async function setupTOTP(req, res) {
     if (user.totpEnabled) return res.status(400).json({ message: '2FA is already enabled. Disable it first to re-setup.' });
 
     const secret = authenticator.generateSecret();
-    const appName = encodeURIComponent('NexGen TMS');
+    const appName = encodeURIComponent('Transa');
     const email = encodeURIComponent(user.email);
     const otpauthUrl = `otpauth://totp/${appName}:${email}?secret=${secret}&issuer=${appName}`;
     const qrDataUrl = await QRCode.toDataURL(otpauthUrl);

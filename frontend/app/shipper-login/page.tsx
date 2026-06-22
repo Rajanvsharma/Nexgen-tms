@@ -48,7 +48,7 @@ export default function ShipperLoginPage() {
             borderRadius: 14, display: 'grid', placeItems: 'center',
             fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 auto 14px',
           }}>N</div>
-          <div style={{ color: '#fff', fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px' }}>NexGen TMS</div>
+          <div style={{ color: '#fff', fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px' }}>Transa</div>
           <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginTop: 4 }}>Shipper · Customer Portal</div>
         </div>
 

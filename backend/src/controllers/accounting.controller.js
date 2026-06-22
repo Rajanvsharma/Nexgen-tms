@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const { PrismaClient } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
 const { sendInvoiceEmail } = require('../services/outbound.service');
 const prisma = new PrismaClient();
@@ -14,8 +14,8 @@ function buildInvoicePDF(invoice, load, customer) {
     const fmt = n => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
     const fmtDate = d => d ? new Date(d).toLocaleDateString('en-US') : 'N/A';
 
-    doc.fontSize(20).fillColor('#1e40af').text('NexGen TMS', 50, 50);
-    doc.fontSize(10).fillColor('#6b7280').text('Transportation Management System', 50, 75);
+    doc.fontSize(20).fillColor('#1e40af').text('Transa', 50, 50);
+    doc.fontSize(10).fillColor('#6b7280').text('Move Smarter. Deliver Better.', 50, 75);
     doc.fontSize(16).fillColor('#111827').text('INVOICE', 400, 50, { align: 'right' });
     doc.fontSize(10).fillColor('#6b7280')
       .text(`Invoice #: ${invoice.invoiceNumber}`, 400, 75, { align: 'right' })
@@ -32,7 +32,7 @@ function buildInvoicePDF(invoice, load, customer) {
     doc.fontSize(11).fillColor('#374151').text('LOAD DETAILS', 310, 140);
     doc.fontSize(10).fillColor('#111827')
       .text(`Load #: ${load.loadNumber}`, 310, 158)
-      .text(`${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}`, 310, 173)
+      .text(`${load.pickupCity}, ${load.pickupState} â†’ ${load.deliveryCity}, ${load.deliveryState}`, 310, 173)
       .text(`Equipment: ${load.equipment}`, 310, 188);
 
     doc.moveTo(50, 210).lineTo(562, 210).strokeColor('#e5e7eb').stroke();
@@ -40,7 +40,7 @@ function buildInvoicePDF(invoice, load, customer) {
     doc.fontSize(9).fillColor('#374151')
       .text('DESCRIPTION', 55, 231).text('AMOUNT', 500, 231, { align: 'right', width: 60 });
     doc.fontSize(10).fillColor('#111827')
-      .text(`Freight services — Load ${load.loadNumber}`, 55, 252)
+      .text(`Freight services â€” Load ${load.loadNumber}`, 55, 252)
       .text(fmt(invoice.amount), 500, 252, { align: 'right', width: 60 });
 
     doc.moveTo(50, 275).lineTo(562, 275).strokeColor('#e5e7eb').stroke();

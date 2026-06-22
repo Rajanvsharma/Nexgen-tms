@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const { PrismaClient } = require('@prisma/client');
 const https = require('https');
 const prisma = new PrismaClient();
 
@@ -64,7 +64,7 @@ async function getStatus(_req, res) {
 function getOAuthUrl(_req, res) {
   if (!process.env.QB_CLIENT_ID) return res.status(400).json({ message: 'QB_CLIENT_ID not configured' });
   const redirectUri = encodeURIComponent(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/quickbooks/callback`);
-  const url = `${QB_AUTH}/authorize?client_id=${process.env.QB_CLIENT_ID}&response_type=code&scope=com.intuit.quickbooks.accounting&redirect_uri=${redirectUri}&state=nexgen`;
+  const url = `${QB_AUTH}/authorize?client_id=${process.env.QB_CLIENT_ID}&response_type=code&scope=com.intuit.quickbooks.accounting&redirect_uri=${redirectUri}&state=Transa`;
   res.json({ url });
 }
 
@@ -136,11 +136,11 @@ async function exportInvoice(req, res) {
       CustomerRef: { value: qbCustomerId },
       DueDate: dueDate,
       DocNumber: invoice.invoiceNumber,
-      PrivateNote: `Load ${invoice.load.loadNumber} · ${invoice.load.pickupCity}, ${invoice.load.pickupState} → ${invoice.load.deliveryCity}, ${invoice.load.deliveryState}`,
+      PrivateNote: `Load ${invoice.load.loadNumber} Â· ${invoice.load.pickupCity}, ${invoice.load.pickupState} â†’ ${invoice.load.deliveryCity}, ${invoice.load.deliveryState}`,
       Line: [{
         DetailType: 'SalesItemLineDetail',
         Amount: invoice.amount,
-        Description: `Freight services — Load ${invoice.load.loadNumber}`,
+        Description: `Freight services â€” Load ${invoice.load.loadNumber}`,
         SalesItemLineDetail: { UnitPrice: invoice.amount, Qty: 1 },
       }],
     };

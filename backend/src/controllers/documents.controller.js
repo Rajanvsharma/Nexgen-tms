@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const { PrismaClient } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
 const crypto = require('crypto');
 const { sendRateConfirmationEmail } = require('../services/outbound.service');
@@ -32,8 +32,8 @@ async function generateRateConfirmation(req, res) {
     doc.pipe(res);
 
     // Header
-    doc.fontSize(20).fillColor('#1e40af').text('NexGen TMS', 50, 50);
-    doc.fontSize(10).fillColor('#6b7280').text('Transportation Management System', 50, 75);
+    doc.fontSize(20).fillColor('#1e40af').text('Transa', 50, 50);
+    doc.fontSize(10).fillColor('#6b7280').text('Move Smarter. Deliver Better.', 50, 75);
     doc.fontSize(16).fillColor('#111827').text('RATE CONFIRMATION', 350, 50, { align: 'right' });
     doc.fontSize(10).fillColor('#6b7280').text(`Load #: ${load.loadNumber}`, 350, 75, { align: 'right' });
     doc.text(`Date: ${formatDate(new Date())}`, 350, 90, { align: 'right' });
@@ -133,7 +133,7 @@ async function generateBOL(req, res) {
     res.setHeader('Content-Disposition', `inline; filename="bol-${load.loadNumber}.pdf"`);
     doc.pipe(res);
 
-    doc.fontSize(20).fillColor('#1e40af').text('NexGen TMS', 50, 50);
+    doc.fontSize(20).fillColor('#1e40af').text('Transa', 50, 50);
     doc.fontSize(16).fillColor('#111827').text('BILL OF LADING', 350, 50, { align: 'right' });
     doc.fontSize(10).fillColor('#6b7280').text(`PRO #: ${load.loadNumber}`, 350, 72, { align: 'right' });
     doc.text(`Date: ${formatDate(new Date())}`, 350, 87, { align: 'right' });
@@ -243,7 +243,7 @@ async function sendRateConfirmation(req, res) {
       const fmt = n => n != null ? `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : 'N/A';
       const fmtD = d => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
 
-      doc.fontSize(20).fillColor('#1e40af').text('NexGen TMS', 50, 50);
+      doc.fontSize(20).fillColor('#1e40af').text('Transa', 50, 50);
       doc.fontSize(16).fillColor('#111827').text('RATE CONFIRMATION', 350, 50, { align: 'right' });
       doc.fontSize(10).fillColor('#6b7280')
         .text(`Load #: ${load.loadNumber}`, 350, 75, { align: 'right' })
@@ -256,7 +256,7 @@ async function sendRateConfirmation(req, res) {
 
       doc.fontSize(11).fillColor('#374151').text('SHIPMENT', 310, 125);
       doc.fontSize(10).fillColor('#111827')
-        .text(`${load.pickupCity}, ${load.pickupState} → ${load.deliveryCity}, ${load.deliveryState}`, 310, 143)
+        .text(`${load.pickupCity}, ${load.pickupState} â†’ ${load.deliveryCity}, ${load.deliveryState}`, 310, 143)
         .text(`Pickup: ${fmtD(load.pickupDate)}`, 310, 158)
         .text(`Equipment: ${load.equipment}`, 310, 173);
 
