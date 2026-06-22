@@ -325,7 +325,7 @@ export default function LoadsPage() {
               <button onClick={openCreate} style={{ padding: '10px 20px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ New Load</button>
             </div>
           ) : (
-            {/* Bulk action bar */}
+            <>
             {selected.size > 0 && (
               <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 9 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>{selected.size} load{selected.size !== 1 ? 's' : ''} selected</span>
@@ -410,6 +410,7 @@ export default function LoadsPage() {
                 })}
               </tbody>
             </table>
+            </>
           )}
         </div>
       </div>

@@ -1,10 +1,10 @@
 const router = require('express').Router();
-const { authenticate } = require('../middleware/auth.middleware');
+const { verifyToken } = require('../middleware/auth.middleware');
 const {
   listEndpoints, createEndpoint, updateEndpoint, deleteEndpoint, listDeliveries,
 } = require('../controllers/webhook.controller');
 
-router.use(authenticate);
+router.use(verifyToken);
 
 router.get('/',                   listEndpoints);
 router.post('/',                  createEndpoint);
