@@ -2,8 +2,8 @@ services:
   - type: web
     name: nexgen-tms-backend
     runtime: node
-    buildCommand: npm install --workspace=backend && node_modules/.bin/prisma generate --schema=backend/prisma/schema.prisma
-    startCommand: node_modules/.bin/prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/src/app.js
+    buildCommand: npm install --workspace=backend && backend/node_modules/.bin/prisma generate --schema=backend/prisma/schema.prisma
+    startCommand: backend/node_modules/.bin/prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/src/app.js
     envVars:
       - key: NODE_ENV
         value: production

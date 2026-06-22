@@ -13,10 +13,6 @@
     "build": "npm run build --workspace=frontend"
   },
   "devDependencies": {
-    "playwright": "^1.60.0",
-    "prisma": "^7.8.0"
-  },
-  "dependencies": {
-    "@prisma/client": "^5.22.0"
+    "playwright": "^1.60.0"
   }
 }
