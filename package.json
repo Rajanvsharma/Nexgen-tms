@@ -9,7 +9,8 @@
   "scripts": {
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
-    "install:all": "npm install"
+    "install:all": "npm install",
+    "build": "npm run build --workspace=frontend"
   },
   "devDependencies": {
     "playwright": "^1.60.0",
