@@ -175,10 +175,12 @@ export default function LoadsPage() {
       const { id } = payload as { id: string };
       setLoads(ls => ls.filter(x => x.id !== id));
     },
-    'loads:bulk-status': ({ ids, status }: { ids: string[]; status: string }) => {
+    'loads:bulk-status': (data: unknown) => {
+      const { ids, status } = data as { ids: string[]; status: string };
       setLoads(ls => ls.map(x => ids.includes(x.id) ? { ...x, status } : x));
     },
-    'loads:bulk-delete': ({ ids }: { ids: string[] }) => {
+    'loads:bulk-delete': (data: unknown) => {
+      const { ids } = data as { ids: string[] };
       setLoads(ls => ls.filter(x => !ids.includes(x.id)));
     },
   });

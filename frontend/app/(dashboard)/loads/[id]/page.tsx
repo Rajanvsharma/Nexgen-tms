@@ -93,7 +93,7 @@ export default function LoadDetailPage() {
       const res = await api.get(`/loads/${id}`);
       setLoad(res.data);
     } catch {
-      toast('Failed to load details', 'error');
+      toast.error('Failed to load details');
     }
   }, [id]);
 
@@ -108,7 +108,7 @@ export default function LoadDetailPage() {
   // ── POD upload ──────────────────────────────────────────────────────────────
   async function handleUploadPOD() {
     const file = fileRef.current?.files?.[0];
-    if (!file) return toast('Select a file first', 'error');
+    if (!file) return toast.error('Select a file first');
     setUploading(true);
     try {
       const form = new FormData();
@@ -117,11 +117,11 @@ export default function LoadDetailPage() {
       form.append('notes', podNote);
       const res = await api.postForm(`/loads/${id}/pods`, form);
       setPods(p => [res.data, ...p]);
-      toast('POD uploaded successfully', 'success');
+      toast.success('POD uploaded successfully');
       setPodNote('');
       if (fileRef.current) fileRef.current.value = '';
     } catch {
-      toast('Upload failed', 'error');
+      toast.error('Upload failed');
     } finally {
       setUploading(false);
     }
@@ -130,12 +130,12 @@ export default function LoadDetailPage() {
   async function deletePOD(podId: string) {
     await api.delete(`/loads/${id}/pods/${podId}`);
     setPods(p => p.filter(x => x.id !== podId));
-    toast('POD deleted', 'success');
+    toast.success('POD deleted');
   }
 
   // ── Accessorial ─────────────────────────────────────────────────────────────
   async function addAccessorial() {
-    if (!accForm.amount) return toast('Enter an amount', 'error');
+    if (!accForm.amount) return toast.error('Enter an amount');
     setAccSaving(true);
     try {
       const res = await api.post(`/loads/${id}/accessorials`, {
@@ -146,9 +146,9 @@ export default function LoadDetailPage() {
       });
       setAccessorials(a => [res.data, ...a]);
       setAccForm({ type: ACCESSORIAL_TYPES[0], amount: '', billTo: 'CUSTOMER', description: '' });
-      toast('Accessorial added', 'success');
+      toast.success('Accessorial added');
     } catch {
-      toast('Failed to add accessorial', 'error');
+      toast.error('Failed to add accessorial');
     } finally {
       setAccSaving(false);
     }
@@ -162,7 +162,7 @@ export default function LoadDetailPage() {
   async function deleteAccessorial(accId: string) {
     await api.delete(`/loads/${id}/accessorials/${accId}`);
     setAccessorials(a => a.filter(x => x.id !== accId));
-    toast('Accessorial removed', 'success');
+    toast.success('Accessorial removed');
   }
 
   // ── Stops ────────────────────────────────────────────────────────────────────
@@ -195,9 +195,9 @@ export default function LoadDetailPage() {
       const res = await api.put(`/loads/${id}/stops`, { stops: editingStops });
       setStops(res.data);
       setStopsMode(false);
-      toast('Stops saved', 'success');
+      toast.success('Stops saved');
     } catch {
-      toast('Failed to save stops', 'error');
+      toast.error('Failed to save stops');
     } finally {
       setStopsSaving(false);
     }
@@ -206,7 +206,7 @@ export default function LoadDetailPage() {
   async function markComplete(stopId: string) {
     const res = await api.patch(`/loads/${id}/stops/${stopId}/complete`, {});
     setStops(s => s.map(x => x.id === stopId ? res.data : x));
-    toast('Stop marked complete', 'success');
+    toast.success('Stop marked complete');
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
