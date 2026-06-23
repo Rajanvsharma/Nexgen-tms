@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore, type Role } from '@/store/auth.store';
@@ -10,7 +10,7 @@ import api from '@/lib/api';
 interface NavItem {
   id: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   href: string;
   tag?: string;
   roles?: Role[];
