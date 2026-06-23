@@ -99,7 +99,7 @@ export default function Sidebar() {
             <img
               src={branding.logoData}
               alt={branding.companyName}
-              style={{ height: 36, maxWidth: 140, objectFit: 'contain', display: 'block' }}
+              style={{ height: 44, maxWidth: 160, objectFit: 'contain', display: 'block' }}
             />
           ) : (
             <>
