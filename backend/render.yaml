@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: backend
     buildCommand: echo '{"name":"root","version":"1.0.0"}' > ../package.json && npm install && ./node_modules/.bin/prisma generate
-    startCommand: ./node_modules/.bin/prisma migrate deploy && node src/app.js
+    startCommand: ./node_modules/.bin/prisma migrate deploy && node prisma/seed-admin.js && node src/app.js
     envVars:
       - key: NODE_ENV
         value: production

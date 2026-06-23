@@ -51,7 +51,11 @@ app.use(compression());
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(o => o.trim().replace(/\/$/, ''));
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    if (!origin) return cb(null, true);
+    // Allow any Vercel deployment (production + previews) and explicitly listed origins
+    if (/\.vercel\.app$/.test(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin) || allowedOrigins.includes(origin)) {
+      return cb(null, true);
+    }
     cb(new Error('CORS: origin not allowed'));
   },
   credentials: true,
