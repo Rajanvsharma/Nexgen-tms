@@ -107,8 +107,8 @@ export default function Sidebar() {
   const primary    = branding.primaryColor;
   const accent     = branding.accentColor;
   const darkBg     = branding.sidebarBg;
-  const activeBg   = `${accent}22`;
-  const activeText = primary;
+  const activeBg   = `${accent}28`;
+  const activeText = '#ffffff';
 
   async function handleLogout() {
     try { await api.post('/auth/logout'); } finally {
@@ -124,17 +124,17 @@ export default function Sidebar() {
     <aside style={{
       width: open ? 232 : 62,
       minHeight: '100vh',
-      background: '#f8fafc',
+      background: darkBg,
       display: 'flex',
       flexDirection: 'column',
       flexShrink: 0,
-      borderRight: '1px solid #e2e8f0',
+      borderRight: 'none',
       transition: 'width 0.22s cubic-bezier(.4,0,.2,1)',
       overflow: 'hidden',
     }}>
 
-      {/* ── Logo header (dark) ── */}
-      <div style={{ background: darkBg, padding: '14px 12px', flexShrink: 0 }}>
+      {/* ── Logo header ── */}
+      <div style={{ padding: '14px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 
           {/* Hamburger button */}
@@ -195,7 +195,7 @@ export default function Sidebar() {
             <div key={gi} style={{ marginBottom: 4 }}>
               {open && group.label && (
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: '#94a3b8',
+                  fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)',
                   letterSpacing: '0.8px', textTransform: 'uppercase',
                   padding: '8px 10px 4px', whiteSpace: 'nowrap',
                 }}>
@@ -217,21 +217,21 @@ export default function Sidebar() {
                       padding: open ? '9px 12px' : '10px 0',
                       borderRadius: 8,
                       marginBottom: 1,
-                      color: isActive ? activeText : '#64748b',
-                      fontWeight: isActive ? 600 : 450,
+                      color: isActive ? activeText : 'rgba(255,255,255,0.55)',
+                      fontWeight: isActive ? 600 : 400,
                       fontSize: 13.5,
                       textDecoration: 'none',
                       background: isActive ? activeBg : 'transparent',
                       transition: 'all 0.12s',
                       whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = '#f1f5f9'; }}
+                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)'; }}
                     onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                   >
                     <span style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: 20, flexShrink: 0,
-                      color: isActive ? activeText : '#94a3b8',
+                      color: isActive ? activeText : 'rgba(255,255,255,0.4)',
                     }}>
                       {item.icon}
                     </span>
@@ -248,7 +248,7 @@ export default function Sidebar() {
                 );
               })}
               {group.divider && (
-                <div style={{ height: 1, background: '#e2e8f0', margin: '6px 4px' }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '6px 4px' }} />
               )}
             </div>
           );
@@ -259,8 +259,8 @@ export default function Sidebar() {
       {user && (
         <div style={{
           padding: open ? '12px 14px' : '10px 6px',
-          borderTop: '1px solid #e2e8f0',
-          background: '#fff',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          background: 'transparent',
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
@@ -278,17 +278,17 @@ export default function Sidebar() {
           {open && (
             <>
               <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user.firstName} {user.lastName}
                 </div>
-                <div style={{ fontSize: 10.5, color: '#94a3b8', fontWeight: 500 }}>{user.role}</div>
+                <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>{user.role}</div>
               </div>
               <button
                 onClick={handleLogout}
                 title="Logout"
-                style={{ border: 0, background: 'transparent', color: '#cbd5e1', cursor: 'pointer', padding: 6, borderRadius: 6, display: 'flex', flexShrink: 0 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.background = '#fef2f2'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#cbd5e1'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                style={{ border: 0, background: 'transparent', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: 6, borderRadius: 6, display: 'flex', flexShrink: 0 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.15)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               >
                 <LogoutIcon />
               </button>
