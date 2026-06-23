@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Topbar from '@/components/layout/Topbar';
 import SlideOver from '@/components/ui/SlideOver';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -254,6 +254,98 @@ export default function LoadsPage() {
     } catch { toast.error('Failed to update status'); }
   }
 
+  // ── CSV Export ──────────────────────────────────────────────────────────────
+  function handleExport() {
+    const rows = filtered.length ? filtered : loads;
+    const headers = ['Load #','Customer','Pickup City','Pickup State','Delivery City','Delivery State','Equipment','Commodity','Weight (lbs)','Customer Rate','Carrier Rate','Margin %','Pickup Date','Delivery Date','Status','Driver Name','Driver Phone','Carrier'];
+    const csvRows = [
+      headers.join(','),
+      ...rows.map(l => [
+        l.loadNumber,
+        `"${l.customer?.name || ''}"`,
+        `"${l.pickupCity}"`, l.pickupState,
+        `"${l.deliveryCity}"`, l.deliveryState,
+        l.equipment,
+        `"${l.commodity || ''}"`,
+        l.weight ?? '',
+        l.customerRate,
+        l.carrierRate ?? '',
+        l.margin != null ? l.margin.toFixed(1) : '',
+        l.pickupDate ? l.pickupDate.slice(0,10) : '',
+        l.deliveryDate ? l.deliveryDate.slice(0,10) : '',
+        l.status,
+        `"${l.driverName || ''}"`,
+        `"${l.driverPhone || ''}"`,
+        `"${l.carrier?.name || ''}"`,
+      ].join(',')),
+    ];
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `loads-export-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} load${rows.length !== 1 ? 's' : ''}`);
+  }
+
+  // ── CSV Import ──────────────────────────────────────────────────────────────
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
+  function handleImportClick() { fileInputRef.current?.click(); }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) { toast.error('CSV is empty or has no data rows'); return; }
+
+      // Parse header to find column indexes
+      const header = lines[0].split(',').map(h => h.replace(/^"|"$/g,'').trim().toLowerCase());
+      const col = (name: string) => header.indexOf(name);
+
+      let created = 0; let failed = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const vals = lines[i].match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || lines[i].split(',');
+        const v = (n: string) => (vals[col(n)] || '').replace(/^"|"$/g,'').trim();
+
+        // Match customer by name
+        const custName = v('customer');
+        const cust = customers.find(c => c.name.toLowerCase() === custName.toLowerCase());
+        if (!cust) { failed++; continue; }
+
+        const payload = {
+          customerId:           cust.id,
+          pickupCity:           v('pickup city'),
+          pickupState:          v('pickup state'),
+          deliveryCity:         v('delivery city'),
+          deliveryState:        v('delivery state'),
+          equipment:            v('equipment') || 'Dry Van',
+          commodity:            v('commodity') || null,
+          weight:               v('weight (lbs)') ? Number(v('weight (lbs)')) : null,
+          customerRate:         Number(v('customer rate')) || 0,
+          carrierRate:          v('carrier rate') ? Number(v('carrier rate')) : null,
+          pickupDate:           v('pickup date') || null,
+          deliveryDate:         v('delivery date') || null,
+          status:               v('status') || 'CREATED',
+          driverName:           v('driver name') || null,
+          driverPhone:          v('driver phone') || null,
+        };
+        if (!payload.pickupCity || !payload.deliveryCity || !payload.customerRate) { failed++; continue; }
+        try { await api.post('/loads', payload); created++; } catch { failed++; }
+      }
+      await loadData();
+      if (created) toast.success(`Imported ${created} load${created !== 1 ? 's' : ''}${failed ? ` (${failed} skipped)` : ''}`);
+      else toast.error(`Import failed — ${failed} row${failed !== 1 ? 's' : ''} skipped. Check customer names match exactly.`);
+    } catch { toast.error('Failed to read CSV file');
+    } finally { setImporting(false); }
+  }
+
   const filtered = loads.filter(l => {
     if (statusFilter !== 'ALL' && l.status !== statusFilter) return false;
     if (!search) return true;
@@ -287,6 +379,35 @@ export default function LoadsPage() {
               ✕ Clear Filter
             </button>
           )}
+
+          {/* CSV Import */}
+          <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
+          <button
+            onClick={handleImportClick}
+            disabled={importing}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: '#fff', color: '#334155', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: importing ? 'not-allowed' : 'pointer', opacity: importing ? 0.6 : 1 }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = '#94a3b8'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = '#e2e8f0'}
+          >
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            {importing ? 'Importing…' : 'CSV Import'}
+          </button>
+
+          {/* Export */}
+          <button
+            onClick={handleExport}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: '#fff', color: '#334155', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = '#94a3b8'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = '#e2e8f0'}
+          >
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export
+          </button>
+
           <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             + New Load
           </button>
