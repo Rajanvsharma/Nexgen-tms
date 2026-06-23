@@ -3,7 +3,7 @@ services:
     name: nexgen-tms-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install && ./node_modules/.bin/prisma generate
+    buildCommand: echo '{"name":"root","version":"1.0.0"}' > ../package.json && npm install && ./node_modules/.bin/prisma generate
     startCommand: ./node_modules/.bin/prisma migrate deploy && node src/app.js
     envVars:
       - key: NODE_ENV
