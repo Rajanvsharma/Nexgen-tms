@@ -116,8 +116,9 @@ async function checkMailbox(config) {
   } catch (err) {
     const detail = err.message || err.code || err.responseCode
       || (typeof err === 'string' ? err : JSON.stringify(err));
-    console.error(`IMAP error for config ${config.id}:`, detail, err);
-    throw new Error(detail || 'Unknown IMAP error');
+    const context = `[${config.host}:${config.port}] `;
+    console.error(`IMAP error for config ${config.id}:`, context, detail, err);
+    throw new Error(context + (detail || 'Unknown IMAP error'));
   }
 
   return newQuotes;
