@@ -57,10 +57,13 @@ function parseEmailBody(subject, bodyText) {
 }
 
 async function checkMailbox(config) {
+  const port   = config.port;
+  const secure = port === 993 || port === 995;  // 993=IMAPS, 587/143=STARTTLS
   const client = new ImapFlow({
     host: config.host,
-    port: config.port,
-    secure: config.port === 993,
+    port,
+    secure,
+    ...(secure ? {} : { tls: { rejectUnauthorized: false } }),
     auth: { user: config.username, pass: config.password },
     logger: false,
   });
@@ -112,6 +115,7 @@ async function checkMailbox(config) {
     });
   } catch (err) {
     console.error(`IMAP error for config ${config.id}:`, err.message);
+    throw new Error(err.message); // propagate so the controller returns the real error
   }
 
   return newQuotes;
