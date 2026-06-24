@@ -114,8 +114,10 @@ async function checkMailbox(config) {
       data: { lastChecked: new Date() },
     });
   } catch (err) {
-    console.error(`IMAP error for config ${config.id}:`, err.message);
-    throw new Error(err.message); // propagate so the controller returns the real error
+    const detail = err.message || err.code || err.responseCode
+      || (typeof err === 'string' ? err : JSON.stringify(err));
+    console.error(`IMAP error for config ${config.id}:`, detail, err);
+    throw new Error(detail || 'Unknown IMAP error');
   }
 
   return newQuotes;
