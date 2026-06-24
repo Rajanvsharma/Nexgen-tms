@@ -1,20 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode, type CSSProperties } from 'react';
 import { useAuthStore, type AuthUser } from '@/store/auth.store';
 import { useBrandingStore, type BrandingConfig } from '@/store/branding.store';
 import api from '@/lib/api';
 
-type Tab = 'profile' | 'email' | 'notifications' | 'api' | 'system' | 'security' | 'billing';
+type Tab = 'general' | 'brokerage' | 'profile' | 'ai-agent' | 'notifications' | 'integrations' | 'telephony' | 'security' | 'billing' | 'email' | 'api' | 'system';
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'profile',       label: 'Profile',         icon: '◯' },
-  { id: 'security',      label: 'Security / 2FA',  icon: '🔒' },
-  { id: 'billing',       label: 'Billing & Plan',  icon: '💳' },
-  { id: 'email',         label: 'Email (IMAP)',     icon: '✉' },
-  { id: 'notifications', label: 'Notifications',    icon: '🔔' },
-  { id: 'api',           label: 'API Keys',         icon: '🔑' },
-  { id: 'system',        label: 'System',           icon: '⚙' },
+// Tiny SVG icon helper
+function SI({ d, size = 16 }: { d: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+
+const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
+  { id: 'general',       label: 'General',       icon: <SI d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /> },
+  { id: 'brokerage',     label: 'Brokerage',     icon: <SI d="M18 20V10M12 20V4M6 20v-6" /> },
+  { id: 'profile',       label: 'Profile',       icon: <SI d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" /> },
+  { id: 'ai-agent',      label: 'AI Agent',      icon: <SI d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /> },
+  { id: 'notifications', label: 'Notifications', icon: <SI d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" /> },
+  { id: 'integrations',  label: 'Integrations',  icon: <SI d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" /> },
+  { id: 'telephony',     label: 'Telephony',     icon: <SI d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.63A2 2 0 012.18 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.09a16 16 0 006 6l1.06-1.06a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.26v2.66z" /> },
+  { id: 'security',      label: 'Security',      icon: <SI d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /> },
+  { id: 'billing',       label: 'Billing',       icon: <SI d="M2 6h20v12H2zM2 10h20" /> },
+  { id: 'email',         label: 'Email (IMAP)',   icon: <SI d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6" /> },
+  { id: 'api',           label: 'API Keys',       icon: <SI d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" /> },
+  { id: 'system',        label: 'System',         icon: <SI d="M12 15a3 3 0 100-6 3 3 0 000 6zm6.93-3a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /> },
 ];
 
 // ── default notification prefs ────────────────────────────────────────────────
@@ -32,26 +46,30 @@ const DEFAULT_NOTIF = {
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore();
   const { branding } = useBrandingStore();
-  const [tab, setTab] = useState<Tab>('profile');
+  const [tab, setTab] = useState<Tab>('general');
   const primary = branding.primaryColor;
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#f1f5f9', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}>
       {/* Left tab rail */}
-      <div style={{ width: 210, background: '#fff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', padding: '20px 10px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 12, paddingLeft: 10 }}>Settings</div>
+      <div style={{ width: 220, background: '#fff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', padding: '20px 10px', overflowY: 'auto' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.5px', marginBottom: 6, paddingLeft: 10 }}>Configure account and preferences</div>
+        <div style={{ height: 1, background: '#f1f5f9', margin: '8px 4px 10px' }} />
         {TABS.filter(t => t.id !== 'system' || user?.role === 'ADMIN').map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '10px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
-            background: tab === t.id ? `${primary}18` : 'transparent',
-            color: tab === t.id ? primary : '#475569',
+            background: tab === t.id ? '#e6f7f2' : 'transparent',
+            color: tab === t.id ? '#0d9488' : '#475569',
             fontWeight: tab === t.id ? 600 : 400,
             fontSize: 13.5,
-            borderLeft: tab === t.id ? `3px solid ${primary}` : '3px solid transparent',
             marginBottom: 2,
-          }}>
-            <span style={{ fontSize: 14 }}>{t.icon}</span>
+            transition: 'all 0.12s',
+          }}
+          onMouseEnter={e => { if (tab !== t.id) (e.currentTarget as HTMLElement).style.background = '#f8fafc'; }}
+          onMouseLeave={e => { if (tab !== t.id) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            <span style={{ color: tab === t.id ? '#0d9488' : '#94a3b8', display: 'flex', flexShrink: 0 }}>{t.icon}</span>
             {t.label}
           </button>
         ))}
@@ -59,14 +77,346 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 32 }}>
+        {tab === 'general'       && <GeneralTab primary={primary} />}
+        {tab === 'brokerage'     && <BrokerageTab primary={primary} />}
         {tab === 'profile'       && <ProfileTab user={user} setUser={setUser} primary={primary} />}
+        {tab === 'ai-agent'      && <AiAgentTab primary={primary} />}
+        {tab === 'notifications' && <NotificationsTab primary={primary} />}
+        {tab === 'integrations'  && <ApiTab primary={primary} />}
+        {tab === 'telephony'     && <TelephonyTab primary={primary} />}
         {tab === 'security'      && <SecurityTab primary={primary} />}
         {tab === 'billing'       && <BillingTab primary={primary} />}
         {tab === 'email'         && <EmailTab primary={primary} />}
-        {tab === 'notifications' && <NotificationsTab primary={primary} />}
         {tab === 'api'           && <ApiTab primary={primary} />}
         {tab === 'system'        && <SystemTab primary={primary} branding={branding} />}
       </div>
+    </div>
+  );
+}
+
+// ─── General Tab ─────────────────────────────────────────────────────────────
+function GeneralTab({ primary }: { primary: string }) {
+  const [form, setForm] = useState({
+    companyName: '', phone: '',
+    startTime: '08:00', endTime: '18:00', timezone: 'America/Chicago', workingDays: 'Mon-Fri',
+  });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('general_settings');
+    if (stored) try { setForm(JSON.parse(stored)); } catch {}
+  }, []);
+
+  function save() {
+    setSaving(true);
+    setTimeout(() => {
+      localStorage.setItem('general_settings', JSON.stringify(form));
+      setMsg({ type: 'ok', text: 'Settings saved.' });
+      setSaving(false);
+      setTimeout(() => setMsg(null), 2500);
+    }, 400);
+  }
+
+  const TIMEZONES = ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Phoenix','UTC'];
+  const WORKING_DAYS = ['Mon-Fri','Mon-Sat','Mon-Sun','Tue-Sat'];
+
+  return (
+    <div style={{ maxWidth: 680 }}>
+      {msg && <Alert type={msg.type} text={msg.text} />}
+
+      <SectionCard
+        icon={<SI d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />}
+        iconColor="#f59e0b"
+        title="Company"
+        subtitle="Your organization details"
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Field label="COMPANY NAME">
+            <input value={form.companyName} onChange={e => setForm(f => ({ ...f, companyName: e.target.value }))} style={inp} placeholder="NexGen TMS Inc." />
+          </Field>
+          <Field label="PHONE">
+            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} style={inp} placeholder="+1 (555) 000-0000" />
+          </Field>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={<SI d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />}
+        iconColor="#3b82f6"
+        title="Business hours"
+        subtitle="When Alex can make calls"
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <Field label="START TIME">
+            <input type="time" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))} style={inp} />
+          </Field>
+          <Field label="END TIME">
+            <input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))} style={inp} />
+          </Field>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Field label="TIMEZONE">
+            <select value={form.timezone} onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))} style={{ ...inp, cursor: 'pointer' }}>
+              {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+            </select>
+          </Field>
+          <Field label="WORKING DAYS">
+            <select value={form.workingDays} onChange={e => setForm(f => ({ ...f, workingDays: e.target.value }))} style={{ ...inp, cursor: 'pointer' }}>
+              {WORKING_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </Field>
+        </div>
+      </SectionCard>
+
+      <SaveBtn onClick={save} loading={saving} primary={primary} label="Save Changes" />
+    </div>
+  );
+}
+
+// ─── Brokerage Tab ────────────────────────────────────────────────────────────
+function BrokerageTab({ primary }: { primary: string }) {
+  const [form, setForm] = useState({
+    legalName: '', contactEmail: '', brokerMC: '', dot: '',
+    streetAddress: '', city: '', state: '', zip: '',
+    website: '', linkedin: '', facebook: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('brokerage_settings');
+    if (stored) try { setForm(JSON.parse(stored)); } catch {}
+  }, []);
+
+  function save() {
+    setSaving(true);
+    setTimeout(() => {
+      localStorage.setItem('brokerage_settings', JSON.stringify(form));
+      setMsg({ type: 'ok', text: 'Brokerage info saved.' });
+      setSaving(false);
+      setTimeout(() => setMsg(null), 2500);
+    }, 400);
+  }
+
+  const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
+
+  return (
+    <div style={{ maxWidth: 720 }}>
+      {msg && <Alert type={msg.type} text={msg.text} />}
+
+      <SectionCard
+        icon={<SI d="M18 20V10M12 20V4M6 20v-6" />}
+        iconColor="#0d9488"
+        title="Brokerage Identity"
+        subtitle="Shown on Rate Confirmations and customer documents"
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <Field label="LEGAL NAME">
+            <input value={form.legalName} onChange={f('legalName')} style={inp} placeholder="ABC Brokerage LLC" />
+          </Field>
+          <Field label="CONTACT EMAIL">
+            <input type="email" value={form.contactEmail} onChange={f('contactEmail')} style={inp} placeholder="ops@company.com" />
+          </Field>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Field label="BROKER MC #">
+            <input value={form.brokerMC} onChange={f('brokerMC')} style={inp} placeholder="MC-123456" />
+          </Field>
+          <Field label="DOT #">
+            <input value={form.dot} onChange={f('dot')} style={inp} placeholder="1234567" />
+          </Field>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={<SI d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />}
+        iconColor="#6366f1"
+        title="Billing Address"
+        subtitle="Used on invoices and rate confirmations"
+      >
+        <Field label="STREET ADDRESS">
+          <input value={form.streetAddress} onChange={f('streetAddress')} style={inp} placeholder="123 Main St, Suite 100" />
+        </Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16, marginTop: 16 }}>
+          <Field label="CITY">
+            <input value={form.city} onChange={f('city')} style={inp} placeholder="Chicago" />
+          </Field>
+          <Field label="STATE">
+            <input value={form.state} onChange={f('state')} style={inp} placeholder="IL" maxLength={2} />
+          </Field>
+          <Field label="ZIP">
+            <input value={form.zip} onChange={f('zip')} style={inp} placeholder="60601" />
+          </Field>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={<SI d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />}
+        iconColor="#8b5cf6"
+        title="Web Presence"
+        subtitle="Optional public links"
+      >
+        <Field label="WEBSITE">
+          <input value={form.website} onChange={f('website')} style={inp} placeholder="https://www.yourcompany.com" />
+        </Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+          <Field label="LINKEDIN">
+            <input value={form.linkedin} onChange={f('linkedin')} style={inp} placeholder="https://linkedin.com/company/..." />
+          </Field>
+          <Field label="FACEBOOK">
+            <input value={form.facebook} onChange={f('facebook')} style={inp} placeholder="https://facebook.com/..." />
+          </Field>
+        </div>
+      </SectionCard>
+
+      <SaveBtn onClick={save} loading={saving} primary={primary} label="Save Brokerage Info" />
+    </div>
+  );
+}
+
+// ─── AI Agent Tab ─────────────────────────────────────────────────────────────
+function AiAgentTab({ primary }: { primary: string }) {
+  const [form, setForm] = useState({ agentName: 'Alex', agentVoice: 'neutral', autoNegotiate: true, autoParseEmail: true, copilotEnabled: true, maxNegotiationRounds: '3' });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('ai_agent_settings');
+    if (stored) try { setForm(JSON.parse(stored)); } catch {}
+  }, []);
+
+  function save() {
+    setSaving(true);
+    setTimeout(() => {
+      localStorage.setItem('ai_agent_settings', JSON.stringify(form));
+      setMsg({ type: 'ok', text: 'AI Agent settings saved.' });
+      setSaving(false);
+      setTimeout(() => setMsg(null), 2500);
+    }, 400);
+  }
+
+  return (
+    <div style={{ maxWidth: 600 }}>
+      <PageHeader title="AI Agent" subtitle="Configure your AI assistant behavior" />
+      {msg && <Alert type={msg.type} text={msg.text} />}
+
+      <SectionCard icon={<SI d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />} iconColor="#f59e0b" title="Agent Identity" subtitle="How your AI presents itself">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Field label="AGENT NAME">
+            <input value={form.agentName} onChange={e => setForm(f => ({ ...f, agentName: e.target.value }))} style={inp} placeholder="Alex" />
+          </Field>
+          <Field label="VOICE STYLE">
+            <select value={form.agentVoice} onChange={e => setForm(f => ({ ...f, agentVoice: e.target.value }))} style={{ ...inp, cursor: 'pointer' }}>
+              <option value="neutral">Neutral</option>
+              <option value="professional">Professional</option>
+              <option value="friendly">Friendly</option>
+            </select>
+          </Field>
+        </div>
+        <Field label="MAX NEGOTIATION ROUNDS">
+          <input type="number" min={1} max={10} value={form.maxNegotiationRounds} onChange={e => setForm(f => ({ ...f, maxNegotiationRounds: e.target.value }))} style={{ ...inp, maxWidth: 120 }} />
+        </Field>
+      </SectionCard>
+
+      <SectionCard icon={<SI d="M12 15a3 3 0 100-6 3 3 0 000 6z" />} iconColor="#3b82f6" title="Capabilities" subtitle="Toggle AI features on or off">
+        {([
+          ['autoNegotiate',  'Voice / Rate Negotiation',  'AI negotiates carrier rates automatically'],
+          ['autoParseEmail', 'Email Auto-Parsing',         'Parse incoming shipper emails into loads'],
+          ['copilotEnabled', 'Copilot Sidebar',            'Show AI suggestions across all pages'],
+        ] as [keyof typeof form, string, string][]).map(([key, label, desc]) => (
+          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{label}</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{desc}</div>
+            </div>
+            <Toggle on={!!form[key]} onChange={() => setForm(f => ({ ...f, [key]: !f[key] }))} primary={primary} />
+          </div>
+        ))}
+      </SectionCard>
+
+      <SaveBtn onClick={save} loading={saving} primary={primary} label="Save AI Settings" />
+    </div>
+  );
+}
+
+// ─── Telephony Tab ────────────────────────────────────────────────────────────
+function TelephonyTab({ primary }: { primary: string }) {
+  const [form, setForm] = useState({ twilioSid: '', twilioToken: '', twilioPhone: '', callRecording: true, voicemail: true });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('telephony_settings');
+    if (stored) try { setForm(JSON.parse(stored)); } catch {}
+  }, []);
+
+  function save() {
+    setSaving(true);
+    setTimeout(() => {
+      localStorage.setItem('telephony_settings', JSON.stringify(form));
+      setMsg({ type: 'ok', text: 'Telephony settings saved.' });
+      setSaving(false);
+      setTimeout(() => setMsg(null), 2500);
+    }, 400);
+  }
+
+  return (
+    <div style={{ maxWidth: 600 }}>
+      <PageHeader title="Telephony" subtitle="Configure calling and voicemail via Twilio" />
+      {msg && <Alert type={msg.type} text={msg.text} />}
+
+      <SectionCard icon={<SI d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.63A2 2 0 012.18 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.09a16 16 0 006 6l1.06-1.06a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.26v2.66z" />} iconColor="#0d9488" title="Twilio Credentials" subtitle="Required for AI voice calls and SMS">
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#1e40af' }}>
+          💡 Get credentials at console.twilio.com — add a verified phone number to make/receive calls.
+        </div>
+        <Field label="ACCOUNT SID">
+          <input value={form.twilioSid} onChange={e => setForm(f => ({ ...f, twilioSid: e.target.value }))} style={inp} placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+        </Field>
+        <Field label="AUTH TOKEN">
+          <input type="password" value={form.twilioToken} onChange={e => setForm(f => ({ ...f, twilioToken: e.target.value }))} style={inp} placeholder="••••••••••••••••••••••••••••••••" />
+        </Field>
+        <Field label="TWILIO PHONE NUMBER">
+          <input value={form.twilioPhone} onChange={e => setForm(f => ({ ...f, twilioPhone: e.target.value }))} style={inp} placeholder="+15550001234" />
+        </Field>
+      </SectionCard>
+
+      <SectionCard icon={<SI d="M12 15a3 3 0 100-6 3 3 0 000 6z" />} iconColor="#6366f1" title="Call Settings" subtitle="Behavior for inbound and outbound calls">
+        {([
+          ['callRecording', 'Call Recording',  'Record all calls for compliance and review'],
+          ['voicemail',     'Voicemail',        'Enable AI-powered voicemail transcription'],
+        ] as [keyof typeof form, string, string][]).map(([key, label, desc]) => (
+          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{label}</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{desc}</div>
+            </div>
+            <Toggle on={!!form[key]} onChange={() => setForm(f => ({ ...f, [key]: !f[key] }))} primary={primary} />
+          </div>
+        ))}
+      </SectionCard>
+
+      <SaveBtn onClick={save} loading={saving} primary={primary} label="Save Telephony" />
+    </div>
+  );
+}
+
+// ─── Section Card (used by new tabs) ─────────────────────────────────────────
+function SectionCard({ icon, iconColor, title, subtitle, children }: {
+  icon: ReactNode; iconColor: string; title: string; subtitle: string; children: ReactNode;
+}) {
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, padding: 28, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 22 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: `${iconColor}18`, display: 'grid', placeItems: 'center', color: iconColor, flexShrink: 0 }}>
+          {icon}
+        </div>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{title}</div>
+          <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 2 }}>{subtitle}</div>
+        </div>
+      </div>
+      {children}
     </div>
   );
 }
@@ -402,7 +752,7 @@ function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div style={{ background: '#fff', borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 18 }}>{title}</div>
@@ -411,7 +761,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 5 }}>{label}</label>
@@ -455,7 +805,7 @@ function Toggle({ on, onChange, primary }: { on: boolean; onChange: () => void; 
   );
 }
 
-const inp: React.CSSProperties = {
+const inp: CSSProperties = {
   width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0',
   borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box',
   background: '#fff',
@@ -642,8 +992,8 @@ function SecurityTab({ primary }: { primary: string }) {
     } finally { setLoading(false); }
   }
 
-  const card: React.CSSProperties = { background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, marginBottom: 20, maxWidth: 520 };
-  const btn = (bg: string): React.CSSProperties => ({ background: bg, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: loading ? 0.6 : 1 });
+  const card: CSSProperties = { background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, marginBottom: 20, maxWidth: 520 };
+  const btn = (bg: string): CSSProperties => ({ background: bg, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: loading ? 0.6 : 1 });
 
   return (
     <div>
