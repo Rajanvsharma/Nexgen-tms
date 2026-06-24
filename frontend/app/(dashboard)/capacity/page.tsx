@@ -212,37 +212,7 @@ export default function CapacityPage() {
       <Topbar title="Capacity Hub" />
       <main style={{ flex: 1, overflowY: 'auto', background: '#f8fafc' }}>
 
-        {/* ── Hero Banner ── */}
-        <div style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 50%, #1e3a8a 100%)', padding: '28px 26px 24px', color: '#fff' }}>
-          <div style={{ maxWidth: 900 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '3px 10px', letterSpacing: '0.5px' }}>Transa CAPACITY</span>
-            </div>
-            <h1 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 700, letterSpacing: '-0.5px', lineHeight: 1.2 }}>
-              Create loads instantly.<br />Access broader capacity. Cover more freight.
-            </h1>
-            <p style={{ margin: '0 0 18px', fontSize: 14, opacity: 0.85, lineHeight: 1.5, maxWidth: 620 }}>
-              Create loads in seconds and reach a wider, smarter pool of FTL, LTL, rail-wise, and port-wise carriers — all from one screen, without switching between tools.
-            </p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {[
-                { icon: '✉', name: 'Inbox Intellect™', desc: 'Email → Load in 1 click' },
-                { icon: '⚡', name: 'CarrierQ™', desc: 'FTL · LTL · Rail · Port' },
-                { icon: '🔗', name: 'One Workflow', desc: 'Create, match & book' },
-              ].map(f => (
-                <div key={f.name} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>{f.icon}</span>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{f.name}</div>
-                    <div style={{ fontSize: 11, opacity: 0.8 }}>{f.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 0, minHeight: 'calc(100vh - 200px)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 0, minHeight: 'calc(100vh - 56px)' }}>
 
           {/* ══════════════════════════════════════════════════════════
               LEFT PANEL — Inbox Intellect™ + Quick Create
