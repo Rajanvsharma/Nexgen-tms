@@ -3,6 +3,7 @@
 import { useState, useEffect, type ReactNode, type CSSProperties } from 'react';
 import { useAuthStore, type AuthUser } from '@/store/auth.store';
 import { useBrandingStore, type BrandingConfig } from '@/store/branding.store';
+import { ALL_CLOCKS, loadClockPrefs, saveClockPrefs } from '@/lib/world-clocks';
 import api from '@/lib/api';
 
 type Tab = 'general' | 'brokerage' | 'profile' | 'ai-agent' | 'notifications' | 'integrations' | 'telephony' | 'security' | 'billing' | 'email' | 'api' | 'system';
@@ -102,27 +103,38 @@ function GeneralTab({ primary }: { primary: string }) {
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [enabledClocks, setEnabledClocks] = useState<string[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem('general_settings');
     if (stored) try { setForm(JSON.parse(stored)); } catch {}
+    setEnabledClocks(loadClockPrefs());
   }, []);
 
   function save() {
     setSaving(true);
     setTimeout(() => {
       localStorage.setItem('general_settings', JSON.stringify(form));
+      saveClockPrefs(enabledClocks);
       setMsg({ type: 'ok', text: 'Settings saved.' });
       setSaving(false);
       setTimeout(() => setMsg(null), 2500);
     }, 400);
   }
 
+  function toggleClock(tz: string) {
+    setEnabledClocks(prev => {
+      if (prev.includes(tz)) return prev.filter(t => t !== tz);
+      if (prev.length >= 5) return prev; // max 5
+      return [...prev, tz];
+    });
+  }
+
   const TIMEZONES = ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Phoenix','UTC'];
   const WORKING_DAYS = ['Mon-Fri','Mon-Sat','Mon-Sun','Tue-Sat'];
 
   return (
-    <div style={{ maxWidth: 680 }}>
+    <div style={{ maxWidth: 720 }}>
       {msg && <Alert type={msg.type} text={msg.text} />}
 
       <SectionCard
@@ -167,6 +179,55 @@ function GeneralTab({ primary }: { primary: string }) {
             </select>
           </Field>
         </div>
+      </SectionCard>
+
+      {/* ── World Clocks ── */}
+      <SectionCard
+        icon={<SI d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6v6l4 2" />}
+        iconColor="#8b5cf6"
+        title="World Clocks on Dashboard"
+        subtitle={`Select up to 5 clocks to show on your dashboard — ${enabledClocks.length}/5 selected`}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          {ALL_CLOCKS.map(c => {
+            const on = enabledClocks.includes(c.tz);
+            const atMax = enabledClocks.length >= 5 && !on;
+            return (
+              <button
+                key={c.tz}
+                onClick={() => toggleClock(c.tz)}
+                disabled={atMax}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 14px', borderRadius: 10, cursor: atMax ? 'not-allowed' : 'pointer',
+                  border: `1.5px solid ${on ? '#8b5cf6' : '#e2e8f0'}`,
+                  background: on ? '#f5f3ff' : '#fff',
+                  opacity: atMax ? 0.45 : 1,
+                  textAlign: 'left', transition: 'all 0.12s',
+                }}
+              >
+                <span style={{ fontSize: 20, flexShrink: 0 }}>{c.flag}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: on ? '#7c3aed' : '#334155' }}>{c.label}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{c.sub}</div>
+                </div>
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                  border: `2px solid ${on ? '#8b5cf6' : '#cbd5e1'}`,
+                  background: on ? '#8b5cf6' : '#fff',
+                  display: 'grid', placeItems: 'center',
+                }}>
+                  {on && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        {enabledClocks.length >= 5 && (
+          <div style={{ marginTop: 12, fontSize: 12, color: '#f59e0b', fontWeight: 500 }}>
+            ⚠ Maximum 5 clocks selected. Deselect one to add another.
+          </div>
+        )}
       </SectionCard>
 
       <SaveBtn onClick={save} loading={saving} primary={primary} label="Save Changes" />

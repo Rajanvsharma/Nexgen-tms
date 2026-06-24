@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import api from '@/lib/api';
+import { ALL_CLOCKS, DEFAULT_CLOCK_TZS, loadClockPrefs } from '@/lib/world-clocks';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Stats {
@@ -21,36 +22,45 @@ interface AgentLog {
 }
 
 // ─── World Clocks ─────────────────────────────────────────────────────────────
-const ZONES = [
-  { label: 'Pacific', sub: 'Los Angeles', tz: 'America/Los_Angeles' },
-  { label: 'Mountain', sub: 'Arizona', tz: 'America/Phoenix' },
-  { label: 'Central', sub: 'Texas', tz: 'America/Chicago' },
-  { label: 'Eastern', sub: 'New York', tz: 'America/New_York' },
-  { label: 'India', sub: 'IST', tz: 'Asia/Kolkata' },
-];
 
 function WorldClock() {
-  const [time, setTime] = useState(new Date());
+  const [time,  setTime]  = useState(new Date());
+  const [zones, setZones] = useState<string[]>(DEFAULT_CLOCK_TZS);
+
   useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
+    setZones(loadClockPrefs());
+    const tick = setInterval(() => setTime(new Date()), 1000);
+    // Refresh prefs every 5s so Settings changes apply without page reload
+    const sync = setInterval(() => setZones(loadClockPrefs()), 5000);
+    return () => { clearInterval(tick); clearInterval(sync); };
   }, []);
+
+  const active = ALL_CLOCKS.filter(c => zones.includes(c.tz));
+  if (!active.length) return null;
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 16 }}>🕐</span>
-        <span style={{ fontWeight: 700, fontSize: 15 }}>World Clocks</span>
+        <span style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>World Clocks</span>
+        <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 4 }}>{active.length} cities</span>
+        <a href="/settings" style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', textDecoration: 'none' }}>Configure →</a>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10 }}>
-        {ZONES.map((z, i) => {
-          const fmt = new Intl.DateTimeFormat('en-US', { timeZone: z.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${active.length}, 1fr)`, gap: 10 }}>
+        {active.map((z, i) => {
+          const fmt  = new Intl.DateTimeFormat('en-US', { timeZone: z.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
           const dfmt = new Intl.DateTimeFormat('en-US', { timeZone: z.tz, weekday: 'short', month: 'short', day: 'numeric' });
+          const highlight = i === 0;
           return (
-            <div key={z.tz} style={{ border: `1px solid ${i === 0 ? '#3b82f6' : '#e2e8f0'}`, borderRadius: 8, padding: '12px 14px', background: i === 0 ? '#eff6ff' : '#fff' }}>
-              <div style={{ fontSize: 11, color: i === 0 ? '#1d4ed8' : '#94a3b8', fontWeight: 600, marginBottom: 2 }}>{z.label} — {z.sub}</div>
-              <div style={{ fontFamily: 'IBM Plex Mono,monospace', fontSize: 18, fontWeight: 700, color: i === 0 ? '#1d4ed8' : '#15202b', letterSpacing: '-0.5px' }}>{fmt.format(time)}</div>
-              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{dfmt.format(time)}</div>
+            <div key={z.tz} style={{
+              border: `1px solid ${highlight ? '#3b82f6' : '#e2e8f0'}`,
+              borderRadius: 10, padding: '12px 14px',
+              background: highlight ? '#eff6ff' : '#fafafa',
+            }}>
+              <div style={{ fontSize: 13, marginBottom: 3 }}>{z.flag}</div>
+              <div style={{ fontSize: 10, color: highlight ? '#1d4ed8' : '#94a3b8', fontWeight: 700, letterSpacing: '0.3px', marginBottom: 2 }}>{z.label}</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 17, fontWeight: 700, color: highlight ? '#1d4ed8' : '#0f172a', letterSpacing: '-0.5px' }}>{fmt.format(time)}</div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 3 }}>{dfmt.format(time)}</div>
             </div>
           );
         })}
