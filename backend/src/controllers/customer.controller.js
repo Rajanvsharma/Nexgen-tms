@@ -1,4 +1,7 @@
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
+const { sendShipperInviteEmail } = require('../services/outbound.service');
 const prisma = new PrismaClient();
 
 const CREDIT_EXCLUDED = ['CANCELLED', 'COMPLETED', 'RECEIVED'];
@@ -110,4 +113,53 @@ async function deleteCustomer(req, res) {
   }
 }
 
-module.exports = { getCustomers, getCustomer, createCustomer, updateCustomer, deleteCustomer };
+async function inviteShipper(req, res) {
+  try {
+    const orgId = req.user.organizationId;
+    const { id } = req.params;
+    const { email, firstName, lastName } = req.body;
+    if (!email || !firstName) {
+      return res.status(400).json({ message: 'email and firstName are required' });
+    }
+
+    const customer = await prisma.customer.findFirst({ where: { id, organizationId: orgId } });
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return res.status(409).json({ message: 'An account with this email already exists' });
+
+    const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    await prisma.user.create({
+      data: {
+        organizationId: orgId,
+        email,
+        password: randomPw,
+        firstName,
+        lastName: lastName || '',
+        role: 'CUSTOMER',
+        isActive: true,
+        customerId: id,
+        resetToken: token,
+        resetTokenExpiry: expiry,
+      },
+    });
+
+    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const invitedBy = `${req.user.firstName} ${req.user.lastName}`;
+    await sendShipperInviteEmail({ toEmail: email, firstName, companyName: customer.name, inviteUrl, invitedBy });
+
+    res.status(201).json({
+      inviteUrl: !process.env.SMTP_HOST ? inviteUrl : null,
+      emailSent: !!process.env.SMTP_HOST,
+      customerName: customer.name,
+    });
+  } catch (err) {
+    console.error('inviteShipper error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getCustomers, getCustomer, createCustomer, updateCustomer, deleteCustomer, inviteShipper };

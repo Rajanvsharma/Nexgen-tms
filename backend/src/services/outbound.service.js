@@ -104,4 +104,39 @@ async function sendPasswordResetEmail({ toEmail, firstName, resetUrl }) {
   });
 }
 
-module.exports = { sendInvoiceEmail, sendRateConfirmationEmail, sendLoadStatusUpdate, sendPasswordResetEmail };
+async function sendUserInviteEmail({ toEmail, firstName, inviteUrl, invitedBy, role }) {
+  return sendMail({
+    to: toEmail,
+    subject: 'You\'ve been invited to NexGen TMS',
+    html: `
+      <div style="font-family:sans-serif;max-width:600px">
+        <h2 style="color:#1e40af">You're Invited!</h2>
+        <p>Hi ${firstName},</p>
+        <p><strong>${invitedBy}</strong> has invited you to join <strong>NexGen TMS</strong> as a <strong>${role}</strong>.</p>
+        <p>Click the button below to set your password and access the platform. This link expires in <strong>72 hours</strong>.</p>
+        <p><a href="${inviteUrl}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:600">Accept Invitation</a></p>
+        <p style="color:#6b7280;font-size:12px">If you didn't expect this, you can ignore this email.</p>
+        <p style="color:#6b7280;font-size:12px">NexGen TMS &middot; Move Smarter. Deliver Better.</p>
+      </div>`,
+  });
+}
+
+async function sendShipperInviteEmail({ toEmail, firstName, companyName, inviteUrl, invitedBy }) {
+  return sendMail({
+    to: toEmail,
+    subject: `${companyName} — Shipper Portal Access`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px">
+        <h2 style="color:#1e40af">Shipper Portal Access</h2>
+        <p>Hi ${firstName || 'there'},</p>
+        <p><strong>${invitedBy}</strong> has set up a shipper portal account for <strong>${companyName}</strong>.</p>
+        <p>You can track your shipments, view quotes, and manage your loads — all in one place.</p>
+        <p>Click below to set your password and get started. This link expires in <strong>72 hours</strong>.</p>
+        <p><a href="${inviteUrl}" style="background:#0d9488;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:600">Access Shipper Portal</a></p>
+        <p style="color:#6b7280;font-size:12px">Questions? Reply to this email.</p>
+        <p style="color:#6b7280;font-size:12px">NexGen TMS &middot; Move Smarter. Deliver Better.</p>
+      </div>`,
+  });
+}
+
+module.exports = { sendInvoiceEmail, sendRateConfirmationEmail, sendLoadStatusUpdate, sendPasswordResetEmail, sendUserInviteEmail, sendShipperInviteEmail };

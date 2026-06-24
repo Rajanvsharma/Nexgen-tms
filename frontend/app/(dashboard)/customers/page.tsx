@@ -34,6 +34,12 @@ export default function CustomersPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
 
+  const [inviteTarget, setInviteTarget] = useState<Customer | null>(null);
+  const [inviteForm, setInviteForm] = useState({ firstName: '', lastName: '', email: '' });
+  const [inviting, setInviting] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ emailSent: boolean; inviteUrl: string | null } | null>(null);
+  const [inviteError, setInviteError] = useState('');
+
   const loadData = useCallback(async () => {
     try {
       const { data } = await api.get('/customers');
@@ -78,6 +84,20 @@ export default function CustomersPage() {
       setCustomers(cs => cs.map(x => x.id === c.id ? { ...x, isActive: !c.isActive } : x));
       toast.success(c.isActive ? 'Customer deactivated' : 'Customer reactivated', c.name);
     } catch { toast.error('Failed to update status'); }
+  }
+
+  async function handleShipperInvite() {
+    if (!inviteTarget) return;
+    setInviteError('');
+    if (!inviteForm.email || !inviteForm.firstName) { setInviteError('First name and email are required'); return; }
+    setInviting(true);
+    try {
+      const { data } = await api.post(`/customers/${inviteTarget.id}/invite`, inviteForm);
+      setInviteResult(data);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setInviteError(msg || 'Failed to send invite');
+    } finally { setInviting(false); }
   }
 
   async function confirmDelete() {
@@ -209,8 +229,9 @@ export default function CustomersPage() {
                       </span>
                     </td>
                     <td style={{ padding: '12px' }}>
-                      <div style={{ display: 'flex', gap: 4 }}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button onClick={() => openEdit(c)} style={{ padding: '5px 10px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#475569', fontWeight: 600 }}>✏ Edit</button>
+                        <button onClick={() => { setInviteTarget(c); setInviteForm({ firstName: '', lastName: '', email: c.email || '' }); setInviteResult(null); setInviteError(''); }} style={{ padding: '5px 10px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#1d4ed8', fontWeight: 600 }}>✉ Invite</button>
                         <button onClick={() => toggleActive(c)} style={{ padding: '5px 10px', background: c.isActive ? '#fef9c3' : '#dcfce7', border: `1px solid ${c.isActive ? '#fde047' : '#86efac'}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: c.isActive ? '#a16207' : '#15803d', fontWeight: 600 }}>
                           {c.isActive ? '⏸ Deactivate' : '▶ Activate'}
                         </button>
@@ -286,6 +307,52 @@ export default function CustomersPage() {
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
         />
+      )}
+
+      {/* Shipper Invite Modal */}
+      {inviteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Invite Shipper Portal Access</h2>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#64748b' }}>Invite someone from <strong>{inviteTarget.name}</strong> to track their shipments online.</p>
+
+            {inviteResult ? (
+              <>
+                <div style={{ padding: '14px 16px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, marginBottom: 16, fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+                  {inviteResult.emailSent ? `✓ Invitation email sent successfully.` : '✓ Account created. Share the link below (no SMTP configured):'}
+                </div>
+                {inviteResult.inviteUrl && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>Invite Link</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input readOnly value={inviteResult.inviteUrl} style={{ flex: 1, padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, fontFamily: 'monospace', color: '#334155', background: '#f8fafc' }} />
+                      <button onClick={() => navigator.clipboard.writeText(inviteResult.inviteUrl!)} style={{ padding: '8px 14px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Copy</button>
+                    </div>
+                  </div>
+                )}
+                <button onClick={() => { setInviteTarget(null); setInviteResult(null); }} style={{ width: '100%', padding: '10px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Done</button>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  <SF label="First Name *"><input value={inviteForm.firstName} onChange={e => setInviteForm(f => ({ ...f, firstName: e.target.value }))} style={CI} placeholder="Jane" /></SF>
+                  <SF label="Last Name"><input value={inviteForm.lastName} onChange={e => setInviteForm(f => ({ ...f, lastName: e.target.value }))} style={CI} placeholder="Smith" /></SF>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <SF label="Email Address *"><input type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} style={CI} placeholder="jane@company.com" /></SF>
+                </div>
+                <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8' }}>They'll receive a link to set their password and access the shipper portal for {inviteTarget.name}.</p>
+                {inviteError && <div style={{ padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, marginBottom: 14, fontSize: 13, color: '#dc2626' }}>{inviteError}</div>}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={() => { setInviteTarget(null); setInviteError(''); }} style={{ padding: '9px 20px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#475569' }}>Cancel</button>
+                  <button onClick={handleShipperInvite} disabled={inviting} style={{ padding: '9px 22px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: inviting ? 'not-allowed' : 'pointer', opacity: inviting ? 0.7 : 1 }}>
+                    {inviting ? 'Sending…' : '✉ Send Invite'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

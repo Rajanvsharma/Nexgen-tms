@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PlusCircle, Pencil, UserX, UserCheck } from 'lucide-react';
+import { PlusCircle, Pencil, UserX, UserCheck, Mail } from 'lucide-react';
 import Topbar from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const EMPTY_FORM = { firstName: '', lastName: '', email: '', password: '', role: 'DISPATCHER', customerId: '' };
+const EMPTY_INVITE = { firstName: '', lastName: '', email: '', role: 'DISPATCHER' };
 
 export default function UsersPage() {
   const { isLoading } = useRequireAuth('ADMIN');
@@ -44,6 +45,12 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState(EMPTY_INVITE);
+  const [inviting, setInviting] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ emailSent: boolean; inviteUrl: string | null } | null>(null);
+  const [inviteError, setInviteError] = useState('');
 
   async function loadUsers() {
     try {
@@ -105,6 +112,32 @@ export default function UsersPage() {
     await loadUsers();
   }
 
+  function openInvite() {
+    setInviteForm(EMPTY_INVITE);
+    setInviteError('');
+    setInviteResult(null);
+    setInviteOpen(true);
+  }
+
+  async function handleInvite() {
+    setInviteError('');
+    if (!inviteForm.email || !inviteForm.firstName || !inviteForm.lastName) {
+      setInviteError('First name, last name, and email are required');
+      return;
+    }
+    setInviting(true);
+    try {
+      const { data } = await api.post('/users/invite', inviteForm);
+      setInviteResult(data);
+      await loadUsers();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setInviteError(msg || 'Failed to send invite');
+    } finally {
+      setInviting(false);
+    }
+  }
+
   if (isLoading) return null;
 
   return (
@@ -116,7 +149,77 @@ export default function UsersPage() {
             <h3 className="text-lg font-semibold text-gray-800">System Users</h3>
             <p className="text-sm text-gray-500">{users.length} user{users.length !== 1 ? 's' : ''} total</p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <div className="flex items-center gap-2">
+            {/* Invite User Dialog */}
+            <Dialog open={inviteOpen} onOpenChange={(v) => { setInviteOpen(v); if (!v) setInviteResult(null); }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" onClick={openInvite}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Invite User
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Invite User</DialogTitle>
+                </DialogHeader>
+                {inviteResult ? (
+                  <div className="space-y-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+                      {inviteResult.emailSent
+                        ? `Invitation email sent to ${inviteForm.email}.`
+                        : 'User created. No SMTP configured — share this link manually:'}
+                    </div>
+                    {inviteResult.inviteUrl && (
+                      <div className="space-y-2">
+                        <Label>Invite Link (copy and share)</Label>
+                        <div className="flex gap-2">
+                          <Input readOnly value={inviteResult.inviteUrl} className="text-xs font-mono" />
+                          <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(inviteResult.inviteUrl!)}>Copy</Button>
+                        </div>
+                      </div>
+                    )}
+                    <Button className="w-full" onClick={() => { setInviteOpen(false); setInviteResult(null); }}>Done</Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label>First Name</Label>
+                        <Input value={inviteForm.firstName} onChange={e => setInviteForm(f => ({ ...f, firstName: e.target.value }))} placeholder="Jane" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Last Name</Label>
+                        <Input value={inviteForm.lastName} onChange={e => setInviteForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Smith" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Email Address</Label>
+                      <Input type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} placeholder="jane@company.com" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Role</Label>
+                      <Select value={inviteForm.role} onValueChange={v => setInviteForm(f => ({ ...f, role: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {ROLES.filter(r => r !== 'CUSTOMER').map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <p className="text-xs text-gray-400">They'll receive an email with a link to set their password and access the TMS.</p>
+                    {inviteError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{inviteError}</p>}
+                    <div className="flex justify-end gap-3 pt-2">
+                      <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+                      <Button onClick={handleInvite} disabled={inviting}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        {inviting ? 'Sending…' : 'Send Invite'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button onClick={openCreate}>
                 <PlusCircle className="h-4 w-4 mr-2" />
@@ -187,6 +290,7 @@ export default function UsersPage() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

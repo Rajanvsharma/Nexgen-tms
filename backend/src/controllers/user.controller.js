@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
+const { sendUserInviteEmail } = require('../services/outbound.service');
 
 const prisma = new PrismaClient();
 
@@ -88,4 +90,55 @@ async function deleteUser(req, res) {
   }
 }
 
-module.exports = { getUsers, createUser, updateUser, deleteUser };
+async function inviteUser(req, res) {
+  try {
+    const orgId = req.user.organizationId;
+    const { email, firstName, lastName, role } = req.body;
+    if (!email || !firstName || !lastName) {
+      return res.status(400).json({ message: 'email, firstName, and lastName are required' });
+    }
+
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return res.status(409).json({ message: 'An account with this email already exists' });
+
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { maxUsers: true } });
+    const userCount = await prisma.user.count({ where: { organizationId: orgId, isActive: true } });
+    if (org && userCount >= org.maxUsers) {
+      return res.status(403).json({ message: `User limit reached (${org.maxUsers}). Upgrade your plan.` });
+    }
+
+    const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
+
+    const user = await prisma.user.create({
+      data: {
+        organizationId: orgId,
+        email,
+        password: randomPw,
+        firstName,
+        lastName,
+        role: role || 'DISPATCHER',
+        isActive: true,
+        resetToken: token,
+        resetTokenExpiry: expiry,
+      },
+      select: SAFE_SELECT,
+    });
+
+    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const invitedBy = `${req.user.firstName} ${req.user.lastName}`;
+    await sendUserInviteEmail({ toEmail: email, firstName, inviteUrl, invitedBy, role: role || 'DISPATCHER' });
+
+    res.status(201).json({
+      user,
+      inviteUrl: !process.env.SMTP_HOST ? inviteUrl : null, // only expose link if no SMTP (admin copy/paste)
+      emailSent: !!process.env.SMTP_HOST,
+    });
+  } catch (err) {
+    console.error('inviteUser error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getUsers, createUser, updateUser, deleteUser, inviteUser };
