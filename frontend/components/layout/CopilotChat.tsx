@@ -98,7 +98,6 @@ export default function CopilotChat() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getAccessToken() || ''}`,
         },
-        credentials: 'include',
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
         }),

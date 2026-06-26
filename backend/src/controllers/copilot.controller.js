@@ -142,7 +142,6 @@ async function chat(req, res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
 
     if (provider === 'openai') {
       const { OpenAI } = require('openai');
