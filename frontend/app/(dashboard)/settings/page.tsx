@@ -424,7 +424,6 @@ function AiAgentTab({ primary }: { primary: string }) {
   return (
     <div style={{ maxWidth: 640 }}>
       <PageHeader title="AI Agent" subtitle="Configure the AI powering your Copilot" />
-      {msg && <Alert type={msg.type} text={msg.text} />}
 
       {/* ── Provider ── */}
       <SectionCard icon={<SI d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />} iconColor="#6366f1" title="AI Provider" subtitle="Choose which AI model powers your Copilot">
@@ -516,6 +515,20 @@ function AiAgentTab({ primary }: { primary: string }) {
           {testing ? 'Testing…' : 'Test Connection'}
         </button>
       </div>
+      {msg && (
+        <div style={{
+          marginTop: 12,
+          padding: '10px 14px',
+          borderRadius: 8,
+          fontSize: 13,
+          fontWeight: 500,
+          background: msg.type === 'ok' ? '#f0fdf4' : '#fef2f2',
+          border: `1px solid ${msg.type === 'ok' ? '#bbf7d0' : '#fecaca'}`,
+          color: msg.type === 'ok' ? '#15803d' : '#dc2626',
+        }}>
+          {msg.type === 'ok' ? '✓ ' : '✗ '}{msg.text}
+        </div>
+      )}
     </div>
   );
 }
