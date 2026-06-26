@@ -154,7 +154,7 @@ export default function LoadsPage() {
       const [lRes, cRes, carRes] = await Promise.all([
         api.get('/loads'), api.get('/customers'), api.get('/carriers'),
       ]);
-      setLoads(lRes.data); setCustomers(cRes.data); setCarriers(carRes.data);
+      setLoads(lRes.data.loads ?? lRes.data); setCustomers(cRes.data); setCarriers(carRes.data);
     } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
   }, []);
