@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { useAuthStore } from '@/store/auth.store';
+import { useAuthStore, loadSession } from '@/store/auth.store';
 import { setAccessToken } from '@/lib/api';
 import api from '@/lib/api';
 
@@ -11,11 +11,21 @@ export function useInitAuth() {
   const { setUser, logout } = useAuthStore();
 
   useEffect(() => {
+    // First: try localStorage cache (avoids cross-domain cookie issues on mobile)
+    const cached = loadSession();
+    if (cached) {
+      setUser(cached.user, cached.token);
+      return;
+    }
+
+    // Fallback: try cookie-based refresh (works on desktop / same-domain)
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (!apiUrl || apiUrl === 'undefined') {
+    if (!apiUrl) {
+      // No URL configured — can't refresh, user must log in
       logout();
       return;
     }
+
     (async () => {
       try {
         const { data } = await axios.post(
