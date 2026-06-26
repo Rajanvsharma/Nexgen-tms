@@ -155,3 +155,47 @@
 .scorebar { display: flex; align-items: center; gap: 8px; }
 .scorebar .track { flex: 1; height: 7px; background: var(--surface-3); border-radius: 5px; overflow: hidden; }
 .scorebar .track i { display: block; height: 100%; }
+
+/* ── Mobile responsive ───────────────────────────────────────────────────── */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll table { min-width: 700px; }
+
+@media (max-width: 767px) {
+  /* Topbar: add left padding to clear mobile hamburger (40px + 12px left + gap) */
+  .topbar-header { padding-left: 62px !important; }
+  .topbar-title { display: none !important; }
+  .topbar-search { display: none !important; }
+  .topbar-username { display: none !important; }
+  .topbar-role { display: none !important; }
+
+  /* Tables: wrap in .table-scroll div; table itself min-width */
+  .table-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .table-scroll table { min-width: 700px !important; white-space: nowrap; }
+
+  /* Stat card grids: 2-col on mobile */
+  .stat-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+
+  /* Quick actions: 2-col on mobile */
+  .quick-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+
+  /* Bottom row: stack on mobile */
+  .bottom-row-grid { display: grid !important; grid-template-columns: 1fr !important; gap: 12px !important; }
+
+  /* Prevent horizontal overflow */
+  body { overflow-x: hidden; }
+
+  /* Page content reduced padding */
+  .page-content { padding: 12px !important; }
+
+  /* Filters row: wrap on mobile */
+  .filters-row { flex-wrap: wrap !important; gap: 8px !important; }
+  .filters-row > * { flex: 1 1 140px !important; min-width: 0 !important; }
+
+  /* Slide-over panels: full width */
+  .slide-over-panel { width: 100% !important; max-width: 100% !important; right: 0 !important; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr !important; }
+  .quick-grid { grid-template-columns: 1fr 1fr !important; }
+}

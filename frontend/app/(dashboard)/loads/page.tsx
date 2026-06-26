@@ -363,7 +363,7 @@ export default function LoadsPage() {
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── Header bar ── */}
-        <div style={{ padding: '16px 24px', background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <div className="filters-row" style={{ padding: '16px 24px', background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0f172a' }}>Load Management</h1>
             <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>{loads.length} total loads</p>
@@ -464,6 +464,7 @@ export default function LoadsPage() {
               </div>
             )}
 
+            <div className="table-scroll">
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
@@ -533,6 +534,7 @@ export default function LoadsPage() {
                 })}
               </tbody>
             </table>
+            </div>
             </>
           )}
         </div>

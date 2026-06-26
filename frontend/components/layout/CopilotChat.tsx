@@ -157,7 +157,7 @@ export default function CopilotChat() {
 
   const panelClass = maximized
     ? 'fixed inset-4 z-50 flex flex-col rounded-2xl shadow-2xl bg-white'
-    : 'fixed bottom-24 right-6 z-50 w-[400px] h-[560px] flex flex-col rounded-2xl shadow-2xl bg-white';
+    : 'fixed bottom-24 right-0 left-0 sm:left-auto sm:right-6 z-50 w-full sm:w-[400px] h-[70vh] sm:h-[560px] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl bg-white mx-0 sm:mx-0';
 
   return (
     <>

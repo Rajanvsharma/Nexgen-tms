@@ -25,7 +25,7 @@ export default function SlideOver({ open, title, subtitle, width = 520, onClose,
       {/* Backdrop */}
       <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)' }} onClick={onClose} />
       {/* Panel */}
-      <div style={{ width, background: '#fff', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 32px rgba(0,0,0,0.15)', animation: 'slideFromRight 0.22s ease-out' }}>
+      <div className="slide-over-panel" style={{ width, background: '#fff', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 32px rgba(0,0,0,0.15)', animation: 'slideFromRight 0.22s ease-out' }}>
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>

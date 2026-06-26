@@ -35,42 +35,45 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
   }
 
   return (
-    <header style={{ height: 56, background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 14, padding: '0 18px', flexShrink: 0 }}>
+    <header className="topbar-header" style={{ height: 56, background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 14, padding: '0 18px', flexShrink: 0 }}>
       {/* Command bar */}
       <div style={{ flex: 1, maxWidth: 560, display: 'flex', alignItems: 'center', gap: 8, background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 12px' }}>
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: primary, flexShrink: 0 }} />
         <input
           onKeyDown={handleCmd}
-          placeholder='Ask AI: "find carriers Chicago→Dallas reefer", "post load", "margin this week"…'
+          placeholder='Ask AI…'
+          className="topbar-input"
           style={{ border: 0, background: 'transparent', outline: 'none', flex: 1, fontSize: 13, color: '#15202b' }}
         />
         <kbd style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 4, padding: '1px 5px', background: '#fff' }}>↵</kbd>
       </div>
 
-      {/* Page title (small) */}
+      {/* Page title (small) — hidden on mobile */}
       {title && (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="topbar-title" style={{ display: 'flex', flexDirection: 'column' }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{title}</span>
           {subtitle && <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{subtitle}</span>}
         </div>
       )}
 
-      {/* Global search */}
-      <GlobalSearch />
+      {/* Global search — hidden on mobile */}
+      <div className="topbar-search">
+        <GlobalSearch />
+      </div>
 
       {/* Notification bell */}
       <button
         onClick={() => router.push('/announcements')}
-        style={{ position: 'relative', width: 34, height: 34, border: '1px solid #e2e8f0', background: '#fff', borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 15, color: '#475569', cursor: 'pointer' }}
+        style={{ position: 'relative', width: 34, height: 34, border: '1px solid #e2e8f0', background: '#fff', borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 15, color: '#475569', cursor: 'pointer', flexShrink: 0 }}
       >
         🔔
       </button>
 
-      {/* User info */}
+      {/* User info — hide verbose info on mobile */}
       {user && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: '#475569' }}>{user.firstName} {user.lastName}</span>
-          <span style={{ fontSize: 10, fontWeight: 700, background: `${primary}18`, color: primary, border: `1px solid ${primary}33`, borderRadius: 20, padding: '2px 8px' }}>{user.role}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span className="topbar-username" style={{ fontSize: 12, color: '#475569' }}>{user.firstName} {user.lastName}</span>
+          <span className="topbar-role" style={{ fontSize: 10, fontWeight: 700, background: `${primary}18`, color: primary, border: `1px solid ${primary}33`, borderRadius: 20, padding: '2px 8px' }}>{user.role}</span>
           <button
             onClick={handleLogout}
             style={{ border: '1px solid #e2e8f0', background: '#fff', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#475569', cursor: 'pointer' }}

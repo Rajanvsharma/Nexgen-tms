@@ -106,7 +106,10 @@ export default function DashboardPage() {
     if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
     if (annRes.status === 'fulfilled') setAnnouncements(annRes.value.data.slice(0, 5));
     if (agentRes.status === 'fulfilled') setAgentLogs(agentRes.value.data.slice(0, 5));
-    if (loadsRes.status === 'fulfilled') setLoads(loadsRes.value.data.slice(0, 5));
+    if (loadsRes.status === 'fulfilled') {
+      const d = loadsRes.value.data;
+      setLoads((d.loads ?? d).slice(0, 5));
+    }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -165,7 +168,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div style={{ padding: '20px 24px 60px' }}>
+      <div className="page-content" style={{ padding: '20px 24px 60px' }}>
 
         {/* ── World Clocks ── */}
         <WorldClock />
@@ -173,7 +176,7 @@ export default function DashboardPage() {
         {/* ── Quick Actions ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, color: '#15202b' }}>Quick Actions</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+          <div className="quick-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             {QUICK.map(q => (
               <button key={q.label} onClick={() => router.push(q.href)} style={{
                 background: q.bg, borderRadius: 10, padding: '16px 18px', border: 0,
@@ -198,7 +201,7 @@ export default function DashboardPage() {
         {/* ── Today at a Glance ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, color: '#15202b' }}>Today at a Glance</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12 }}>
+          <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12 }}>
             {kpi.map(k => (
               <div key={k.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -216,7 +219,7 @@ export default function DashboardPage() {
         {/* ── Live Operations Snapshot ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, color: '#15202b' }}>Live Operations Snapshot</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12 }}>
+          <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12 }}>
             {ops.map(o => (
               <div key={o.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -231,7 +234,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Bottom Row: Market Pulse | Recent Loads | Notifications ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1fr', gap: 16 }}>
+        <div className="bottom-row-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1fr', gap: 16 }}>
 
           {/* Market Pulse */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px' }}>
