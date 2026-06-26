@@ -332,7 +332,7 @@ export default function LoadsPage() {
           carrierRate:          v('carrier rate') ? Number(v('carrier rate')) : null,
           pickupDate:           v('pickup date') || null,
           deliveryDate:         v('delivery date') || null,
-          status:               v('status') || 'CREATED',
+          status:               'CREATED', // never trust status from CSV
           driverName:           v('driver name') || null,
           driverPhone:          v('driver phone') || null,
         };

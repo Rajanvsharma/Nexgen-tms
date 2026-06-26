@@ -1,6 +1,5 @@
+﻿const prisma = require('../services/prisma.service');
 const https = require('https');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 
 function fmcsaRequest(dotNumber) {
   const apiKey = process.env.FMCSA_API_KEY;
@@ -73,7 +72,7 @@ async function checkCarrierSafety(req, res) {
     const data = await fmcsaRequest(carrier.dotNumber);
 
     if (!data) {
-      // No API key — return simulated data with instructions
+      // No API key â€” return simulated data with instructions
       return res.json({
         configured: false,
         simulated: true,

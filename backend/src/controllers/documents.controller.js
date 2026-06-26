@@ -1,8 +1,7 @@
-﻿const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const PDFDocument = require('pdfkit');
 const crypto = require('crypto');
 const { sendRateConfirmationEmail } = require('../services/outbound.service');
-const prisma = new PrismaClient();
 
 function formatDate(d) {
   if (!d) return 'N/A';

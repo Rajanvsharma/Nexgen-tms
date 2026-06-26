@@ -1,8 +1,7 @@
+﻿const prisma = require('./prisma.service');
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
 
-const prisma = new PrismaClient();
 
 function generateAccessToken(payload) {
   return jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {

@@ -103,6 +103,9 @@ model Organization {
   trialEndsAt          DateTime?
   maxUsers             Int       @default(5)
   maxLoadsPerMonth     Int       @default(500)
+  aiProvider           String?   @default("anthropic")
+  aiApiKey             String?
+  aiModel              String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -355,6 +358,10 @@ model Load {
   stops               LoadStop[]
 
   @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, pickupDate])
+  @@index([customerId])
 }
 
 // ─── Accounting ───────────────────────────────────────────────────────────────

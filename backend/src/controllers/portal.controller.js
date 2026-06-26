@@ -1,8 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const bcrypt = require('bcryptjs');
 const Anthropic = require('@anthropic-ai/sdk');
 
-const prisma = new PrismaClient();
 
 function getAI() {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -10,7 +9,7 @@ function getAI() {
   return new Anthropic({ apiKey: key });
 }
 
-// ─── Resolve customerId (handles stale JWTs missing the field) ───────────────
+// â”€â”€â”€ Resolve customerId (handles stale JWTs missing the field) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function resolveCustomerId(user) {
   if (user.customerId) return user.customerId;
@@ -18,7 +17,7 @@ async function resolveCustomerId(user) {
   return dbUser?.customerId || null;
 }
 
-// ─── My Quotes ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ My Quotes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getMyQuotes(req, res) {
   try {
@@ -43,7 +42,7 @@ async function getMyQuotes(req, res) {
   }
 }
 
-// ─── My Loads ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ My Loads â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getMyLoads(req, res) {
   try {
@@ -69,7 +68,7 @@ async function getMyLoads(req, res) {
   }
 }
 
-// ─── Create Quote (manual) ────────────────────────────────────────────────────
+// â”€â”€â”€ Create Quote (manual) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function createQuote(req, res) {
   try {
@@ -110,7 +109,7 @@ async function createQuote(req, res) {
   }
 }
 
-// ─── Parse Email (AI extract) ─────────────────────────────────────────────────
+// â”€â”€â”€ Parse Email (AI extract) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function parseEmail(req, res) {
   try {
@@ -187,7 +186,7 @@ function demoEmailExtract(text) {
   };
 }
 
-// ─── Parse Excel/CSV ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Parse Excel/CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function parseExcel(req, res) {
   try {
@@ -226,7 +225,7 @@ async function parseExcel(req, res) {
   }
 }
 
-// ─── Customer Info ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Customer Info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getPortalMe(req, res) {
   try {

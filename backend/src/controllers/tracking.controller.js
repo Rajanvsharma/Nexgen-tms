@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+﻿const prisma = require('../services/prisma.service');
 
-// Public endpoint — carriers/drivers update load location via a token or load number
+// Public endpoint â€” carriers/drivers update load location via a token or load number
 async function updateLocation(req, res) {
   try {
     const { lat, lng, note } = req.body;

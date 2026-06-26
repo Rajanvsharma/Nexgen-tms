@@ -337,66 +337,181 @@ function BrokerageTab({ primary }: { primary: string }) {
 }
 
 // ─── AI Agent Tab ─────────────────────────────────────────────────────────────
+const ANTHROPIC_MODELS = [
+  { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Fastest · Cheapest)' },
+  { value: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6 (Balanced)' },
+  { value: 'claude-opus-4-8',           label: 'Claude Opus 4.8 (Most Capable)' },
+];
+const OPENAI_MODELS = [
+  { value: 'gpt-4o-mini',  label: 'GPT-4o Mini (Fastest · Cheapest)' },
+  { value: 'gpt-4o',       label: 'GPT-4o (Balanced)' },
+  { value: 'gpt-4-turbo',  label: 'GPT-4 Turbo (Most Capable)' },
+];
+
 function AiAgentTab({ primary }: { primary: string }) {
-  const [form, setForm] = useState({ agentName: 'Alex', agentVoice: 'neutral', autoNegotiate: true, autoParseEmail: true, copilotEnabled: true, maxNegotiationRounds: '3' });
+  const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic');
+  const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState('claude-haiku-4-5-20251001');
+  const [showKey, setShowKey] = useState(false);
+  const [hasKey, setHasKey] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  const [agentForm, setAgentForm] = useState({ agentName: 'Alex', autoNegotiate: true, autoParseEmail: true, copilotEnabled: true });
+
   useEffect(() => {
+    api.get('/organization/ai-config').then(r => {
+      setProvider(r.data.aiProvider || 'anthropic');
+      setModel(r.data.aiModel || (r.data.aiProvider === 'openai' ? 'gpt-4o-mini' : 'claude-haiku-4-5-20251001'));
+      setHasKey(!!r.data.hasApiKey);
+    }).catch(() => {});
     const stored = localStorage.getItem('ai_agent_settings');
-    if (stored) try { setForm(JSON.parse(stored)); } catch {}
+    if (stored) try { setAgentForm(JSON.parse(stored)); } catch {}
   }, []);
 
-  function save() {
-    setSaving(true);
-    setTimeout(() => {
-      localStorage.setItem('ai_agent_settings', JSON.stringify(form));
-      setMsg({ type: 'ok', text: 'AI Agent settings saved.' });
-      setSaving(false);
-      setTimeout(() => setMsg(null), 2500);
-    }, 400);
+  function onProviderChange(p: 'anthropic' | 'openai') {
+    setProvider(p);
+    setModel(p === 'openai' ? 'gpt-4o-mini' : 'claude-haiku-4-5-20251001');
   }
 
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await api.post('/organization/ai-config', { aiProvider: provider, aiApiKey: apiKey || undefined, aiModel: model });
+      localStorage.setItem('ai_agent_settings', JSON.stringify(agentForm));
+      setMsg({ type: 'ok', text: 'AI settings saved successfully.' });
+      if (apiKey) { setHasKey(true); setApiKey(''); }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      setMsg({ type: 'err', text: err.response?.data?.message || 'Failed to save.' });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMsg(null), 3000);
+    }
+  }
+
+  async function testConnection() {
+    setTesting(true);
+    setMsg(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const { getAccessToken } = await import('@/lib/api');
+      const res = await fetch(`${apiBase}/api/copilot/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken() || ''}` },
+        credentials: 'include',
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'Say "Connection OK" and nothing else.' }] }),
+      });
+      if (!res.ok) { const j = await res.json(); throw new Error(j.message); }
+      setMsg({ type: 'ok', text: 'Connection successful — AI Copilot is working.' });
+    } catch (e: unknown) {
+      const err = e as Error;
+      setMsg({ type: 'err', text: err.message || 'Connection failed.' });
+    } finally {
+      setTesting(false);
+      setTimeout(() => setMsg(null), 5000);
+    }
+  }
+
+  const models = provider === 'openai' ? OPENAI_MODELS : ANTHROPIC_MODELS;
+
   return (
-    <div style={{ maxWidth: 600 }}>
-      <PageHeader title="AI Agent" subtitle="Configure your AI assistant behavior" />
+    <div style={{ maxWidth: 640 }}>
+      <PageHeader title="AI Agent" subtitle="Configure the AI powering your Copilot" />
       {msg && <Alert type={msg.type} text={msg.text} />}
 
-      <SectionCard icon={<SI d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />} iconColor="#f59e0b" title="Agent Identity" subtitle="How your AI presents itself">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <Field label="AGENT NAME">
-            <input value={form.agentName} onChange={e => setForm(f => ({ ...f, agentName: e.target.value }))} style={inp} placeholder="Alex" />
-          </Field>
-          <Field label="VOICE STYLE">
-            <select value={form.agentVoice} onChange={e => setForm(f => ({ ...f, agentVoice: e.target.value }))} style={{ ...inp, cursor: 'pointer' }}>
-              <option value="neutral">Neutral</option>
-              <option value="professional">Professional</option>
-              <option value="friendly">Friendly</option>
-            </select>
-          </Field>
+      {/* ── Provider ── */}
+      <SectionCard icon={<SI d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />} iconColor="#6366f1" title="AI Provider" subtitle="Choose which AI model powers your Copilot">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          {([
+            { id: 'anthropic', name: 'Anthropic', desc: 'Claude models — best reasoning', emoji: '🤖', accent: '#7c3aed' },
+            { id: 'openai',    name: 'OpenAI',    desc: 'GPT models — widely used',       emoji: '⚡', accent: '#059669' },
+          ] as const).map(p => (
+            <button
+              key={p.id}
+              onClick={() => onProviderChange(p.id)}
+              style={{
+                padding: '14px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                border: `2px solid ${provider === p.id ? p.accent : '#e2e8f0'}`,
+                background: provider === p.id ? `${p.accent}0d` : '#fff',
+                transition: 'all 0.15s',
+              }}
+            >
+              <div style={{ fontSize: 22, marginBottom: 4 }}>{p.emoji}</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{p.name}</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{p.desc}</div>
+            </button>
+          ))}
         </div>
-        <Field label="MAX NEGOTIATION ROUNDS">
-          <input type="number" min={1} max={10} value={form.maxNegotiationRounds} onChange={e => setForm(f => ({ ...f, maxNegotiationRounds: e.target.value }))} style={{ ...inp, maxWidth: 120 }} />
+
+        <Field label="MODEL">
+          <select value={model} onChange={e => setModel(e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+            {models.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
         </Field>
       </SectionCard>
 
+      {/* ── API Key ── */}
+      <SectionCard icon={<SI d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />} iconColor="#f59e0b" title="API Key" subtitle={hasKey ? 'A key is saved — enter a new one to replace it' : 'Paste your API key to enable the Copilot'}>
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: '#475569' }}>
+          {provider === 'anthropic'
+            ? <>Get your key at <strong>console.anthropic.com</strong> → API Keys</>
+            : <>Get your key at <strong>platform.openai.com</strong> → API Keys</>
+          }
+        </div>
+        <Field label={`${provider === 'anthropic' ? 'ANTHROPIC' : 'OPENAI'} API KEY`}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder={hasKey ? '••••••••  (leave blank to keep current)' : `sk-${provider === 'openai' ? '' : 'ant-'}...`}
+              style={{ ...inp, flex: 1, fontFamily: 'monospace', fontSize: 12 }}
+            />
+            <button
+              onClick={() => setShowKey(s => !s)}
+              style={{ padding: '0 12px', border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc', cursor: 'pointer', fontSize: 13, color: '#64748b', flexShrink: 0 }}
+            >
+              {showKey ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </Field>
+        {hasKey && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#059669' }}>
+            <span>✓</span> API key is configured
+          </div>
+        )}
+      </SectionCard>
+
+      {/* ── Capabilities ── */}
       <SectionCard icon={<SI d="M12 15a3 3 0 100-6 3 3 0 000 6z" />} iconColor="#3b82f6" title="Capabilities" subtitle="Toggle AI features on or off">
         {([
           ['autoNegotiate',  'Voice / Rate Negotiation',  'AI negotiates carrier rates automatically'],
           ['autoParseEmail', 'Email Auto-Parsing',         'Parse incoming shipper emails into loads'],
-          ['copilotEnabled', 'Copilot Sidebar',            'Show AI suggestions across all pages'],
-        ] as [keyof typeof form, string, string][]).map(([key, label, desc]) => (
+          ['copilotEnabled', 'Copilot Sidebar',            'Show AI chat panel across all pages'],
+        ] as [keyof typeof agentForm, string, string][]).map(([key, label, desc]) => (
           <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{label}</div>
               <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{desc}</div>
             </div>
-            <Toggle on={!!form[key]} onChange={() => setForm(f => ({ ...f, [key]: !f[key] }))} primary={primary} />
+            <Toggle on={!!agentForm[key]} onChange={() => setAgentForm(f => ({ ...f, [key]: !f[key] }))} primary={primary} />
           </div>
         ))}
       </SectionCard>
 
-      <SaveBtn onClick={save} loading={saving} primary={primary} label="Save AI Settings" />
+      <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+        <SaveBtn onClick={save} loading={saving} primary={primary} label="Save AI Settings" />
+        <button
+          onClick={testConnection}
+          disabled={testing || !hasKey}
+          style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: hasKey ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 500, color: hasKey ? '#475569' : '#cbd5e1', opacity: hasKey ? 1 : 0.6 }}
+        >
+          {testing ? 'Testing…' : 'Test Connection'}
+        </button>
+      </div>
     </div>
   );
 }

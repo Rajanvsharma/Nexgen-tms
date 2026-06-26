@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('./prisma.service');
 const cron = require('node-cron');
 
-const prisma = new PrismaClient();
 
 function hasApiKey() {
   return process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== 'your-anthropic-api-key-here';
@@ -19,7 +18,7 @@ async function completeAgent(id, opts = {}) {
   });
 }
 
-// ─── Agent 1: Compliance Guardian ────────────────────────────────────────────
+// â”€â”€â”€ Agent 1: Compliance Guardian â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function runComplianceGuardian() {
   const log = await logAgent('Compliance Guardian');
   try {
@@ -53,7 +52,7 @@ async function runComplianceGuardian() {
   }
 }
 
-// ─── Agent 2: Fraud Sentinel ─────────────────────────────────────────────────
+// â”€â”€â”€ Agent 2: Fraud Sentinel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function runFraudSentinel() {
   const log = await logAgent('Fraud Sentinel');
   try {
@@ -98,7 +97,7 @@ async function runFraudSentinel() {
   }
 }
 
-// ─── Agent 3: Invoice Aging Agent ────────────────────────────────────────────
+// â”€â”€â”€ Agent 3: Invoice Aging Agent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function runInvoiceAging() {
   const log = await logAgent('Invoice Aging Agent');
   try {
@@ -130,7 +129,7 @@ async function runInvoiceAging() {
   }
 }
 
-// ─── Agent 4: Rate Intelligence Agent ────────────────────────────────────────
+// â”€â”€â”€ Agent 4: Rate Intelligence Agent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function runRateIntelligence() {
   const log = await logAgent('Rate Intelligence Agent');
   try {
@@ -160,7 +159,7 @@ async function runRateIntelligence() {
   }
 }
 
-// ─── Agent 5: Email Processing Agent ─────────────────────────────────────────
+// â”€â”€â”€ Agent 5: Email Processing Agent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function runEmailProcessor() {
   const log = await logAgent('Email Processing Agent');
   try {
@@ -176,11 +175,11 @@ async function runEmailProcessor() {
   }
 }
 
-// ─── Agent 6: AI Insights Agent ──────────────────────────────────────────────
+// â”€â”€â”€ Agent 6: AI Insights Agent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function runAIInsightsAgent() {
   if (!hasApiKey()) {
     const log = await logAgent('AI Insights Agent');
-    await completeAgent(log.id, { summary: 'Skipped — ANTHROPIC_API_KEY not configured.', findings: 0, actions: 0 });
+    await completeAgent(log.id, { summary: 'Skipped â€” ANTHROPIC_API_KEY not configured.', findings: 0, actions: 0 });
     return;
   }
 
@@ -215,7 +214,7 @@ async function runAIInsightsAgent() {
     if (admin) {
       await prisma.announcement.create({
         data: {
-          title: `AI Daily Briefing — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+          title: `AI Daily Briefing â€” ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
           body,
           postedBy: admin.id,
         },
@@ -228,7 +227,7 @@ async function runAIInsightsAgent() {
   }
 }
 
-// ─── Agent 7: Duplicate Detector ─────────────────────────────────────────────
+// â”€â”€â”€ Agent 7: Duplicate Detector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function runDuplicateDetector() {
   const log = await logAgent('Duplicate Detector');
   try {
@@ -258,7 +257,7 @@ async function runDuplicateDetector() {
   }
 }
 
-// ─── Master runner ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Master runner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const AGENTS = {
   'Compliance Guardian': runComplianceGuardian,

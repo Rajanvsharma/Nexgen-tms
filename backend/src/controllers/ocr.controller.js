@@ -1,8 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const Anthropic = require('@anthropic-ai/sdk');
 const fs = require('fs');
 const path = require('path');
-const prisma = new PrismaClient();
 
 function getAnthropicClient() {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -112,7 +111,7 @@ function regexFallback(filename, text) {
   const rateMatch = text.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/);
   if (rateMatch) result.rate = parseFloat(rateMatch[1].replace(/,/g, ''));
 
-  const routeMatch = text.match(/([A-Za-z\s]+),\s*([A-Z]{2})\s+(?:to|->|–|-)\s+([A-Za-z\s]+),\s*([A-Z]{2})/i);
+  const routeMatch = text.match(/([A-Za-z\s]+),\s*([A-Z]{2})\s+(?:to|->|â€“|-)\s+([A-Za-z\s]+),\s*([A-Z]{2})/i);
   if (routeMatch) {
     result.pickupCity = routeMatch[1].trim();
     result.pickupState = routeMatch[2].toUpperCase();

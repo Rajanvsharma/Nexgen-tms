@@ -1,7 +1,6 @@
-﻿const { authenticator } = require('otplib');
+﻿const prisma = require('../services/prisma.service');
+const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 
 authenticator.options = { window: 1 }; // allow 1 step clock drift
 

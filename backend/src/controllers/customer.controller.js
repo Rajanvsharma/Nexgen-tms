@@ -1,8 +1,7 @@
+﻿const prisma = require('../services/prisma.service');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { PrismaClient } = require('@prisma/client');
 const { sendShipperInviteEmail } = require('../services/outbound.service');
-const prisma = new PrismaClient();
 
 const CREDIT_EXCLUDED = ['CANCELLED', 'COMPLETED', 'RECEIVED'];
 
@@ -129,7 +128,8 @@ async function inviteShipper(req, res) {
     if (exists) return res.status(409).json({ message: 'An account with this email already exists' });
 
     const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
-    const token = crypto.randomBytes(32).toString('hex');
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
     await prisma.user.create({
@@ -142,12 +142,12 @@ async function inviteShipper(req, res) {
         role: 'CUSTOMER',
         isActive: true,
         customerId: id,
-        resetToken: token,
+        resetToken: hashedToken,
         resetTokenExpiry: expiry,
       },
     });
 
-    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${rawToken}`;
     const invitedBy = `${req.user.firstName} ${req.user.lastName}`;
     await sendShipperInviteEmail({ toEmail: email, firstName, companyName: customer.name, inviteUrl, invitedBy });
 

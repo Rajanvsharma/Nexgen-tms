@@ -1,11 +1,10 @@
+﻿const prisma = require('../services/prisma.service');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { PrismaClient } = require('@prisma/client');
 const { authenticator } = require('otplib');
 const { generateAccessToken, generateRefreshToken, rotateRefreshToken, deleteRefreshToken } = require('../services/token.service');
 const { sendPasswordResetEmail } = require('../services/outbound.service');
 
-const prisma = new PrismaClient();
 
 const isProd = process.env.NODE_ENV === 'production';
 const COOKIE_OPTS = {
@@ -200,12 +199,14 @@ async function forgotPassword(req, res) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.isActive) return res.json({ message: 'If that email exists, a reset link has been sent.' });
 
-    const token = crypto.randomBytes(32).toString('hex');
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    // Fix #7: hash token before storing — raw token is sent in email only
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expiry = new Date(Date.now() + 60 * 60 * 1000);
 
-    await prisma.user.update({ where: { id: user.id }, data: { resetToken: token, resetTokenExpiry: expiry } });
+    await prisma.user.update({ where: { id: user.id }, data: { resetToken: hashedToken, resetTokenExpiry: expiry } });
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${rawToken}`;
     await sendPasswordResetEmail({ toEmail: user.email, firstName: user.firstName, resetUrl });
     if (!process.env.SMTP_HOST) console.log(`[Password Reset] reset URL: ${resetUrl}`);
 
@@ -222,8 +223,10 @@ async function resetPassword(req, res) {
     if (!token || !password) return res.status(400).json({ message: 'Token and new password are required' });
     if (password.length < 8) return res.status(400).json({ message: 'Password must be at least 8 characters' });
 
+    // Fix #7: hash the incoming token to compare against stored hash
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     const user = await prisma.user.findFirst({
-      where: { resetToken: token, resetTokenExpiry: { gt: new Date() } },
+      where: { resetToken: hashedToken, resetTokenExpiry: { gt: new Date() } },
     });
     if (!user) return res.status(400).json({ message: 'Reset link is invalid or has expired' });
 

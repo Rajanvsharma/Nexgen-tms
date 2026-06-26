@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+﻿const prisma = require('../services/prisma.service');
 
 const THIRTY_DAYS_AGO = () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 const THIRTY_DAYS_AHEAD = () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);

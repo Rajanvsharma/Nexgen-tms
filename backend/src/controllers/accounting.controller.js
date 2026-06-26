@@ -1,7 +1,6 @@
-﻿const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const PDFDocument = require('pdfkit');
 const { sendInvoiceEmail } = require('../services/outbound.service');
-const prisma = new PrismaClient();
 
 function buildInvoicePDF(invoice, load, customer) {
   return new Promise((resolve, reject) => {

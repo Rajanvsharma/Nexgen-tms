@@ -1,8 +1,7 @@
+﻿const prisma = require('./prisma.service');
 const crypto = require('crypto');
 const https  = require('https');
 const http   = require('http');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 
 function signPayload(secret, body) {
   return 'sha256=' + crypto.createHmac('sha256', secret).update(body).digest('hex');

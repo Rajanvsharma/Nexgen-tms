@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+﻿const prisma = require('../services/prisma.service');
 
 const INCLUDE = {
   createdBy: { select: { id: true, firstName: true, lastName: true, role: true } },
@@ -13,7 +12,7 @@ const INCLUDE = {
   _count: { select: { messages: true } },
 };
 
-// GET /api/console — list conversations
+// GET /api/console â€” list conversations
 async function getConversations(req, res) {
   try {
     const { status, search } = req.query;

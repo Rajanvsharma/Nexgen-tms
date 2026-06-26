@@ -1,8 +1,7 @@
+﻿const prisma = require('./prisma.service');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
-const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
 
 // Extract quote fields from plain email body using regex heuristics
 function parseEmailBody(subject, bodyText) {
@@ -34,8 +33,8 @@ function parseEmailBody(subject, bodyText) {
   const rateMatch = bodyText.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/);
   if (rateMatch) result.rate = parseFloat(rateMatch[1].replace(/,/g, ''));
 
-  // Route — look for "from X to Y" or "X, ST to Y, ST" patterns
-  const routeMatch = bodyText.match(/(?:from\s+)?([A-Za-z\s]+),\s*([A-Z]{2})\s+(?:to|->|–|-)\s+([A-Za-z\s]+),\s*([A-Z]{2})/i);
+  // Route â€” look for "from X to Y" or "X, ST to Y, ST" patterns
+  const routeMatch = bodyText.match(/(?:from\s+)?([A-Za-z\s]+),\s*([A-Z]{2})\s+(?:to|->|â€“|-)\s+([A-Za-z\s]+),\s*([A-Z]{2})/i);
   if (routeMatch) {
     result.pickupCity = routeMatch[1].trim();
     result.pickupState = routeMatch[2].toUpperCase();

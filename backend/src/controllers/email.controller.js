@@ -1,15 +1,38 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const crypto = require('crypto');
+const prisma = require('../services/prisma.service');
 const { checkMailbox } = require('../services/email.service');
 
-const prisma = new PrismaClient();
+// Fix #8: encrypt IMAP passwords at rest using AES-256-GCM
+const ALGO = 'aes-256-gcm';
+function getKey() {
+  const k = process.env.ENCRYPTION_KEY || 'nexgen-default-encryption-key-32x';
+  return Buffer.from(k.slice(0, 32).padEnd(32, '0'));
+}
+function encrypt(text) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(ALGO, getKey(), iv);
+  const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString('hex')}:${tag.toString('hex')}:${enc.toString('hex')}`;
+}
+function decrypt(stored) {
+  try {
+    const [ivHex, tagHex, encHex] = stored.split(':');
+    if (!ivHex || !tagHex || !encHex) return stored; // plaintext fallback for existing records
+    const decipher = crypto.createDecipheriv(ALGO, getKey(), Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+    return decipher.update(Buffer.from(encHex, 'hex')) + decipher.final('utf8');
+  } catch { return stored; } // graceful fallback
+}
 
-// ─── Email Config ─────────────────────────────────────────────────────────────
+
+// â”€â”€â”€ Email Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getConfig(req, res) {
   try {
     const config = await prisma.emailConfig.findFirst({ where: { userId: req.user.id } });
     if (!config) return res.json(null);
-    res.json({ ...config, password: '••••••••' });
+    res.json({ ...config, password: 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢' });
   } catch (err) {
     console.error('getConfig error:', err);
     res.status(500).json({ message: 'Internal server error' });
@@ -23,7 +46,7 @@ async function saveConfig(req, res) {
 
     const existing = await prisma.emailConfig.findFirst({ where: { userId: req.user.id } });
     const data = { host, port: parseInt(port) || 993, username, folder: folder || 'INBOX', isActive: isActive !== false };
-    if (password !== '••••••••') data.password = password;
+    if (password !== 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢') data.password = encrypt(password);
 
     let config;
     if (existing) {
@@ -32,7 +55,7 @@ async function saveConfig(req, res) {
       config = await prisma.emailConfig.create({ data: { ...data, userId: req.user.id } });
     }
 
-    res.json({ ...config, password: '••••••••' });
+    res.json({ ...config, password: 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢' });
   } catch (err) {
     console.error('saveConfig error:', err);
     res.status(500).json({ message: 'Internal server error' });
@@ -44,7 +67,7 @@ async function testAndPoll(req, res) {
     const config = await prisma.emailConfig.findFirst({ where: { userId: req.user.id } });
     if (!config) return res.status(404).json({ message: 'No email config found' });
 
-    const count = await checkMailbox(config);
+    const count = await checkMailbox({ ...config, password: decrypt(config.password) });
     res.json({ message: `Mailbox checked. ${count} new email(s) processed.`, count });
   } catch (err) {
     console.error('testAndPoll error:', err);
@@ -52,7 +75,7 @@ async function testAndPoll(req, res) {
   }
 }
 
-// ─── Email Logs ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Email Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getEmailLogs(req, res) {
   try {

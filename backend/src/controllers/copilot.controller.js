@@ -1,7 +1,7 @@
-﻿const Anthropic = require('@anthropic-ai/sdk');
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
+const Anthropic = require('@anthropic-ai/sdk');
+const { getDecryptedAiKey } = require('./organization.controller');
 
-const prisma = new PrismaClient();
 
 const SYSTEM_PROMPT = `You are Transa Copilot, an expert AI assistant built into the Transa (Move Smarter. Deliver Better.). You help freight brokers, dispatchers, and operations staff with their daily tasks.
 
@@ -124,31 +124,56 @@ async function chat(req, res) {
       return res.status(400).json({ message: 'messages array is required' });
     }
 
-    if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'your-anthropic-api-key-here') {
-      return res.status(503).json({ message: 'AI Copilot is not configured. Add your ANTHROPIC_API_KEY to backend/.env and restart the server.' });
+    // Resolve provider + key: org setting takes priority, then env vars
+    const orgAi = await getDecryptedAiKey(req.user.organizationId);
+    const provider = orgAi?.provider || 'anthropic';
+    const apiKey = orgAi?.apiKey
+      || (provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY);
+
+    if (!apiKey || apiKey === 'your-anthropic-api-key-here' || apiKey === 'your-openai-api-key-here') {
+      return res.status(503).json({
+        message: `AI Copilot is not configured. Go to Settings → AI Agent and add your ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.`,
+      });
     }
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const context = await getContext(req.user.id, req.user.role);
-
     const systemWithContext = `${SYSTEM_PROMPT}\n\n${context}`;
 
-    // Stream the response
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL);
+    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
 
-    const stream = await client.messages.stream({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: systemWithContext,
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
-    });
-
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-        res.write(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`);
+    if (provider === 'openai') {
+      const { OpenAI } = require('openai');
+      const openai = new OpenAI({ apiKey });
+      const model = orgAi?.model || 'gpt-4o-mini';
+      const stream = await openai.chat.completions.create({
+        model,
+        max_tokens: 1024,
+        stream: true,
+        messages: [
+          { role: 'system', content: systemWithContext },
+          ...messages.map(m => ({ role: m.role, content: m.content })),
+        ],
+      });
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content;
+        if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      }
+    } else {
+      const client = new Anthropic({ apiKey });
+      const model = orgAi?.model || 'claude-haiku-4-5-20251001';
+      const stream = await client.messages.stream({
+        model,
+        max_tokens: 1024,
+        system: systemWithContext,
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+      });
+      for await (const chunk of stream) {
+        if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
+          res.write(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`);
+        }
       }
     }
 

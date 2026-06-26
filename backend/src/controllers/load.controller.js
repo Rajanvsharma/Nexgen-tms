@@ -1,6 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const { emitToOrg }   = require('../services/socket.service');
-const prisma = new PrismaClient();
 
 const LOAD_INCLUDE = {
   customer: { select: { id: true, name: true } },
@@ -12,15 +11,39 @@ async function getLoads(req, res) {
   try {
     const orgId = req.user.organizationId;
     const where = { organizationId: orgId };
-    if (req.user.role !== 'ADMIN' && req.user.role !== 'ACCOUNTING') where.createdById = req.user.id;
+    // Fix #3: all org roles can see all loads (CUSTOMER role already goes through portal)
+    if (req.user.role === 'CUSTOMER') where.customerId = req.user.customerId;
     if (req.query.status) where.status = req.query.status;
+    if (req.query.search) {
+      const s = req.query.search;
+      where.OR = [
+        { loadNumber: { contains: s, mode: 'insensitive' } },
+        { pickupCity: { contains: s, mode: 'insensitive' } },
+        { deliveryCity: { contains: s, mode: 'insensitive' } },
+      ];
+    }
 
-    const loads = await prisma.load.findMany({ where, orderBy: { createdAt: 'desc' }, include: LOAD_INCLUDE });
-    res.json(loads);
+    // Fix #5: paginate — default 50 per page
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(200, parseInt(req.query.limit) || 50);
+    const skip  = (page - 1) * limit;
+
+    const [loads, total] = await Promise.all([
+      prisma.load.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take: limit, include: LOAD_INCLUDE }),
+      prisma.load.count({ where }),
+    ]);
+    const result = req.user.role === 'CUSTOMER' ? loads.map(stripDriverPII) : loads;
+    res.json({ loads: result, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err) {
     console.error('getLoads error:', err);
     res.status(500).json({ message: 'Internal server error' });
   }
+}
+
+// Fix #12: strip driver PII for CUSTOMER portal users
+function stripDriverPII(load) {
+  const { driverName, driverPhone, carrierRate, margin, ...safe } = load;
+  return safe;
 }
 
 async function getLoad(req, res) {
@@ -30,7 +53,7 @@ async function getLoad(req, res) {
       include: { ...LOAD_INCLUDE, quote: true, invoice: true, payment: true },
     });
     if (!load) return res.status(404).json({ message: 'Load not found' });
-    res.json(load);
+    res.json(req.user.role === 'CUSTOMER' ? stripDriverPII(load) : load);
   } catch (err) {
     console.error('getLoad error:', err);
     res.status(500).json({ message: 'Internal server error' });
@@ -60,13 +83,14 @@ async function checkCreditLimit(customerId, orgId, newAmount) {
 }
 
 async function nextLoadNumber(orgId, slug) {
-  const loads = await prisma.load.findMany({ where: { organizationId: orgId }, select: { loadNumber: true } });
+  // Fix #2: single ordered query instead of fetching all loads — O(1) not O(n)
   const prefix = slug.toUpperCase().replace(/-+$/, '');
-  let max = 10000;
-  for (const l of loads) {
-    const n = parseInt(l.loadNumber.replace(/^[^-]+-/, '').replace(/^PRO-/, ''), 10);
-    if (!isNaN(n) && n > max) max = n;
-  }
+  const last = await prisma.load.findFirst({
+    where: { organizationId: orgId, loadNumber: { startsWith: prefix + '-' } },
+    orderBy: { createdAt: 'desc' },
+    select: { loadNumber: true },
+  });
+  const max = last ? (parseInt(last.loadNumber.split('-').pop(), 10) || 10000) : 10000;
   return `${prefix}-${String(max + 1).padStart(6, '0')}`;
 }
 
@@ -81,6 +105,19 @@ async function createLoad(req, res) {
     const { customerId, pickupCity, pickupState, deliveryCity, deliveryState, commodity, weight, equipment, pickupDate, deliveryDate, customerRate, carrierRate, specialInstructions } = req.body;
     if (!customerId || !pickupCity || !pickupState || !deliveryCity || !deliveryState || !equipment || !customerRate) {
       return res.status(400).json({ message: 'customerId, cities, states, equipment, and customerRate are required' });
+    }
+
+    // Fix #11: enforce monthly load limit per plan
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { maxLoadsPerMonth: true, subscriptionStatus: true } });
+    if (org && org.subscriptionStatus !== 'active' && org.subscriptionStatus !== 'trialing') {
+      return res.status(403).json({ message: 'Your subscription is inactive. Please update your billing to create loads.' });
+    }
+    if (org && org.maxLoadsPerMonth) {
+      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+      const loadsThisMonth = await prisma.load.count({ where: { organizationId: orgId, createdAt: { gte: monthStart } } });
+      if (loadsThisMonth >= org.maxLoadsPerMonth) {
+        return res.status(403).json({ message: `Monthly load limit reached (${org.maxLoadsPerMonth}). Upgrade your plan.` });
+      }
     }
 
     const cust = parseFloat(customerRate);
@@ -141,7 +178,8 @@ async function updateLoad(req, res) {
     const carr = data.carrierRate ?? existing.carrierRate;
     if (cust && carr) data.margin = parseFloat(((cust - carr) / cust * 100).toFixed(2));
 
-    const load = await prisma.load.update({ where: { id: req.params.id }, data, include: LOAD_INCLUDE });
+    // Fix #4: include organizationId in update where clause for proper tenant isolation
+    const load = await prisma.load.update({ where: { id: req.params.id, organizationId: orgId }, data, include: LOAD_INCLUDE });
     emitToOrg(orgId, 'load:updated', load);
     res.json(load);
   } catch (err) {

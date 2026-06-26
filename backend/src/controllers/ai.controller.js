@@ -1,7 +1,6 @@
-﻿const Anthropic = require('@anthropic-ai/sdk');
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
+const Anthropic = require('@anthropic-ai/sdk');
 
-const prisma = new PrismaClient();
 
 function getClient() {
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'your-anthropic-api-key-here') {

@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+﻿const prisma = require('../services/prisma.service');
 
 async function getLaneRates(req, res) {
   try {
@@ -50,7 +49,7 @@ async function getLaneRates(req, res) {
       recentRates: loads.slice(0, 10).map(l => ({
         rate: l.customerRate, margin: l.margin, equipment: l.equipment,
         date: l.pickupDate || l.createdAt,
-        route: `${l.pickupCity}, ${l.pickupState} → ${l.deliveryCity}, ${l.deliveryState}`,
+        route: `${l.pickupCity}, ${l.pickupState} â†’ ${l.deliveryCity}, ${l.deliveryState}`,
       })),
     });
   } catch (err) {

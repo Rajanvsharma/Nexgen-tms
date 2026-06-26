@@ -1,6 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const https = require('https');
-const prisma = new PrismaClient();
 
 async function postToDAT(load) {
   const apiKey = process.env.DAT_API_KEY;

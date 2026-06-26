@@ -1,6 +1,5 @@
-﻿const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const https = require('https');
-const prisma = new PrismaClient();
 
 // QuickBooks Online OAuth2 + Accounting API
 // Set these env vars in Render: QB_CLIENT_ID, QB_CLIENT_SECRET, QB_REALM_ID, QB_ACCESS_TOKEN, QB_REFRESH_TOKEN

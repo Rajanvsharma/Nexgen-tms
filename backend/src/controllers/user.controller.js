@@ -1,9 +1,8 @@
+﻿const prisma = require('../services/prisma.service');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { PrismaClient } = require('@prisma/client');
 const { sendUserInviteEmail } = require('../services/outbound.service');
 
-const prisma = new PrismaClient();
 
 const SAFE_SELECT = {
   id: true, email: true, firstName: true, lastName: true,
@@ -108,8 +107,9 @@ async function inviteUser(req, res) {
     }
 
     const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
     const user = await prisma.user.create({
       data: {
@@ -120,13 +120,13 @@ async function inviteUser(req, res) {
         lastName,
         role: role || 'DISPATCHER',
         isActive: true,
-        resetToken: token,
+        resetToken: hashedToken,
         resetTokenExpiry: expiry,
       },
       select: SAFE_SELECT,
     });
 
-    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${rawToken}`;
     const invitedBy = `${req.user.firstName} ${req.user.lastName}`;
     await sendUserInviteEmail({ toEmail: email, firstName, inviteUrl, invitedBy, role: role || 'DISPATCHER' });
 

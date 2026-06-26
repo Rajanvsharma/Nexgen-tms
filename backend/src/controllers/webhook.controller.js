@@ -1,6 +1,5 @@
+﻿const prisma = require('../services/prisma.service');
 const crypto = require('crypto');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 
 async function listEndpoints(req, res) {
   try {

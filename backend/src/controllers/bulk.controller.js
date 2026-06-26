@@ -1,6 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const { emitToOrg }   = require('../services/socket.service');
-const prisma = new PrismaClient();
 
 async function bulkUpdateStatus(req, res) {
   try {

@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const prisma = require('../services/prisma.service');
 const { uploadFile }   = require('../services/storage.service');
 const path             = require('path');
 const crypto           = require('crypto');
 
-const prisma = new PrismaClient();
 
 async function listPODs(req, res) {
   try {
