@@ -383,12 +383,12 @@ function AiAgentTab({ primary }: { primary: string }) {
       localStorage.setItem('ai_agent_settings', JSON.stringify(agentForm));
       setMsg({ type: 'ok', text: 'AI settings saved successfully.' });
       if (apiKey) { setHasKey(true); setApiKey(''); }
+      setTimeout(() => setMsg(null), 4000);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } };
-      setMsg({ type: 'err', text: err.response?.data?.message || 'Failed to save.' });
+      setMsg({ type: 'err', text: err.response?.data?.message || 'Failed to save — check that you are logged in as ADMIN.' });
     } finally {
       setSaving(false);
-      setTimeout(() => setMsg(null), 3000);
     }
   }
 
@@ -404,14 +404,18 @@ function AiAgentTab({ primary }: { primary: string }) {
         credentials: 'include',
         body: JSON.stringify({ messages: [{ role: 'user', content: 'Say "Connection OK" and nothing else.' }] }),
       });
-      if (!res.ok) { const j = await res.json(); throw new Error(j.message); }
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { const j = await res.json(); msg = j.message || msg; } catch {}
+        throw new Error(msg);
+      }
       setMsg({ type: 'ok', text: 'Connection successful — AI Copilot is working.' });
+      setTimeout(() => setMsg(null), 6000);
     } catch (e: unknown) {
       const err = e as Error;
-      setMsg({ type: 'err', text: err.message || 'Connection failed.' });
+      setMsg({ type: 'err', text: err.message || 'Connection failed — check browser console for details.' });
     } finally {
       setTesting(false);
-      setTimeout(() => setMsg(null), 5000);
     }
   }
 

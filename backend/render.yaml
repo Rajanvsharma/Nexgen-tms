@@ -26,3 +26,7 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
