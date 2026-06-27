@@ -142,4 +142,38 @@ async function inviteUser(req, res) {
   }
 }
 
-module.exports = { getUsers, createUser, updateUser, deleteUser, inviteUser };
+async function resendInvite(req, res) {
+  try {
+    const orgId = req.user.organizationId;
+    const target = await prisma.user.findFirst({
+      where: { id: req.params.id, organizationId: orgId },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true },
+    });
+    if (!target) return res.status(404).json({ message: 'User not found' });
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: target.id },
+      data: { resetToken: hashedToken, resetTokenExpiry: expiry },
+    });
+
+    const inviteUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
+    const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true, email: true } });
+    const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : 'NexGen TMS';
+    await sendUserInviteEmail({ toEmail: target.email, firstName: target.firstName, inviteUrl, invitedBy, role: target.role });
+
+    res.json({
+      message: `Invite resent to ${target.email}`,
+      inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
+      emailSent: !!process.env.RESEND_API_KEY,
+    });
+  } catch (err) {
+    console.error('resendInvite error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getUsers, createUser, updateUser, deleteUser, inviteUser, resendInvite };

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PlusCircle, Pencil, UserX, UserCheck, Mail, Trash2 } from 'lucide-react';
+import { PlusCircle, Pencil, UserX, UserCheck, Mail, Trash2, RefreshCw } from 'lucide-react';
 import Topbar from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,6 +110,21 @@ export default function UsersPage() {
   async function toggleActive(u: UserRow) {
     await api.put(`/users/${u.id}`, { isActive: !u.isActive });
     await loadUsers();
+  }
+
+  async function resendInvite(u: UserRow) {
+    try {
+      const { data } = await api.post(`/users/${u.id}/resend-invite`);
+      if (data.inviteUrl) {
+        const copy = window.confirm(`Email not configured — copy invite link?\n\n${data.inviteUrl}`);
+        if (copy) navigator.clipboard.writeText(data.inviteUrl).catch(() => {});
+      } else {
+        alert(`Invite resent to ${u.email}`);
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg || 'Failed to resend invite');
+    }
   }
 
   async function deleteUser(u: UserRow) {
@@ -336,6 +351,9 @@ export default function UsersPage() {
                       <div className="flex items-center gap-2">
                         <button onClick={() => openEdit(u)} className="text-gray-400 hover:text-blue-600 transition-colors" title="Edit">
                           <Pencil className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => resendInvite(u)} className="text-gray-400 hover:text-indigo-600 transition-colors" title="Resend invite email">
+                          <RefreshCw className="h-4 w-4" />
                         </button>
                         <button onClick={() => toggleActive(u)} className="text-gray-400 hover:text-yellow-600 transition-colors" title={u.isActive ? 'Deactivate' : 'Activate'}>
                           {u.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
