@@ -42,8 +42,9 @@ export default function DispatchPage() {
 
   async function loadData() {
     try {
-      const { data } = await api.get('/loads');
-      setLoads(data.filter((l: Load) => l.status !== 'CANCELLED' && l.status !== 'INVOICED'));
+      const { data } = await api.get('/loads?limit=200');
+      const list: Load[] = data.loads ?? data;
+      setLoads(list.filter((l: Load) => l.status !== 'CANCELLED' && l.status !== 'INVOICED'));
     } finally {
       setLoading(false);
     }
