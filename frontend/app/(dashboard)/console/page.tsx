@@ -104,7 +104,7 @@ export default function ConsolePage() {
   useEffect(() => {
     if (showNew) {
       Promise.all([api.get('/loads'), api.get('/customers'), api.get('/carriers')]).then(([l, c, ca]) => {
-        setLoads(l.data.slice(0, 50));
+        setLoads((l.data.loads ?? l.data).slice(0, 50));
         setCustomers(c.data.filter((x: CustomerOption & { isActive: boolean }) => x.isActive));
         setCarriers(ca.data.filter((x: CarrierOption & { status: string }) => x.status === 'ACTIVE'));
       });

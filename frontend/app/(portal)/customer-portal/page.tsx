@@ -70,7 +70,7 @@ export default function CustomerPortalPage() {
   useEffect(() => {
     Promise.all([api.get('/loads'), api.get('/accounting/invoices').catch(() => ({ data: [] })), api.get('/quotes')])
       .then(([ld, inv, qt]) => {
-        setLoads(ld.data);
+        setLoads(ld.data.loads ?? ld.data);
         setInvoices(inv.data);
         setQuotes(qt.data);
       }).finally(() => setLoading(false));

@@ -46,7 +46,7 @@ export default function DocumentsPage() {
   async function loadData() {
     try {
       const [loadsRes, docsRes] = await Promise.all([api.get('/loads'), api.get('/documents')]);
-      setLoads(loadsRes.data.filter((l: Load) => l.status !== 'CANCELLED'));
+      setLoads((loadsRes.data.loads ?? loadsRes.data).filter((l: Load) => l.status !== 'CANCELLED'));
       setDocs(docsRes.data);
     } finally {
       setLoading(false);

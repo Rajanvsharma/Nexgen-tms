@@ -51,7 +51,7 @@ export default function ScorecardPage() {
     try {
       const [sc, ld] = await Promise.all([api.get('/scorecard'), api.get('/loads')]);
       setCards(sc.data);
-      setLoads(ld.data.filter((l: Load & { carrierId: string | null }) => l.carrierId));
+      setLoads((ld.data.loads ?? ld.data).filter((l: Load & { carrierId: string | null }) => l.carrierId));
     } finally {
       setLoading(false);
     }

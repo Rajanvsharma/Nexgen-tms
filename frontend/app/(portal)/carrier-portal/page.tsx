@@ -53,7 +53,7 @@ export default function CarrierPortalPage() {
       api.get('/loads'),
       api.get('/accounting/payments').catch(() => ({ data: [] })),
     ]).then(([ld, pay]) => {
-      setLoads(ld.data.filter((l: Load) => l.status !== 'CREATED'));
+      setLoads((ld.data.loads ?? ld.data).filter((l: Load) => l.status !== 'CREATED'));
       setPayments(pay.data);
     }).finally(() => setLoading(false));
   }, []);

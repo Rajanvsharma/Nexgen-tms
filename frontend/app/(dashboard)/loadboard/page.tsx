@@ -46,7 +46,7 @@ export default function LoadBoardPage() {
   async function loadData() {
     try {
       const { data } = await api.get('/loads');
-      const eligible = data.filter((l: Load) => ['CREATED', 'DISPATCHED'].includes(l.status));
+      const eligible = (data.loads ?? data).filter((l: Load) => ['CREATED', 'DISPATCHED'].includes(l.status));
       setLoads(eligible);
 
       const postingMap: Record<string, Posting[]> = {};
