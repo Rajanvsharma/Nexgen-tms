@@ -1,5 +1,6 @@
 ﻿const prisma = require('../services/prisma.service');
 const { emitToOrg }   = require('../services/socket.service');
+const { fireWorkflowEvent } = require('../services/workflow.service');
 
 const LOAD_INCLUDE = {
   customer: { select: { id: true, name: true } },
@@ -142,6 +143,8 @@ async function createLoad(req, res) {
       include: LOAD_INCLUDE,
     });
     emitToOrg(orgId, 'load:created', load);
+    // Fire workflow event (non-blocking)
+    fireWorkflowEvent('load_created', { organizationId: orgId, load }).catch(() => {});
     res.status(201).json(load);
   } catch (err) {
     console.error('createLoad error:', err);
@@ -152,7 +155,7 @@ async function createLoad(req, res) {
 async function updateLoad(req, res) {
   try {
     const orgId = req.user.organizationId;
-    const existing = await prisma.load.findFirst({ where: { id: req.params.id, organizationId: orgId }, select: { customerRate: true, carrierRate: true } });
+    const existing = await prisma.load.findFirst({ where: { id: req.params.id, organizationId: orgId }, select: { customerRate: true, carrierRate: true, carrierId: true, status: true } });
     if (!existing) return res.status(404).json({ message: 'Load not found' });
 
     const { customerId, carrierId, status, customerRate, carrierRate, pickupCity, pickupState, deliveryCity, deliveryState, commodity, weight, equipment, pickupDate, deliveryDate, specialInstructions, driverName, driverPhone } = req.body;
@@ -179,8 +182,19 @@ async function updateLoad(req, res) {
     if (cust && carr) data.margin = parseFloat(((cust - carr) / cust * 100).toFixed(2));
 
     // Fix #4: include organizationId in update where clause for proper tenant isolation
+    const prevCarrierId = existing.carrierId ?? null;
     const load = await prisma.load.update({ where: { id: req.params.id, organizationId: orgId }, data, include: LOAD_INCLUDE });
     emitToOrg(orgId, 'load:updated', load);
+
+    // Fire workflow events (non-blocking)
+    if (data.carrierId && data.carrierId !== prevCarrierId) {
+      const carrier = await prisma.carrier.findUnique({ where: { id: data.carrierId } }).catch(() => null);
+      fireWorkflowEvent('carrier_assigned', { organizationId: orgId, load, carrier }).catch(() => {});
+    }
+    if (data.status && data.status !== existing.status) {
+      fireWorkflowEvent('load_status_changed', { organizationId: orgId, load }).catch(() => {});
+    }
+
     res.json(load);
   } catch (err) {
     console.error('updateLoad error:', err);

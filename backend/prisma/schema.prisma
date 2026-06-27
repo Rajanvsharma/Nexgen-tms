@@ -118,6 +118,7 @@ model Organization {
   pods             ProofOfDelivery[]
   accessorials     Accessorial[]
   webhookEndpoints WebhookEndpoint[]
+  workflows        Workflow[]
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -735,4 +736,39 @@ model LoadStop {
   createdAt       DateTime  @default(now())
 
   @@index([loadId])
+}
+
+// ─── Workflow Automation ──────────────────────────────────────────────────────
+
+model Workflow {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  active         Boolean       @default(true)
+  trigger        String        // load_created | load_status_changed | carrier_assigned | daily_scan
+  conditionType  String        @default("always")
+  conditionValue String?       // e.g. "10" for margin%, "30" for days
+  actions        Json          @default("[]")
+  totalRuns      Int           @default(0)
+  lastRunAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  runs           WorkflowRun[]
+
+  @@index([organizationId])
+  @@index([organizationId, trigger, active])
+}
+
+model WorkflowRun {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status     String   // success | skipped | failed
+  summary    String?
+  context    Json?
+  runAt      DateTime @default(now())
+
+  @@index([workflowId])
+  @@index([runAt])
 }
