@@ -9,7 +9,7 @@ async function getStats(req, res) {
     const userId = req.user.id;
     const orgId = req.user.organizationId;
 
-    if (role === 'ADMIN') {
+    if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
       const [userCount, activeLoads, pendingInvoices, expiringCarriers, pendingQuotes, revenueThisMonth] = await Promise.all([
         prisma.user.count({ where: { organizationId: orgId, isActive: true } }),
         prisma.load.count({ where: { organizationId: orgId, status: { in: ['CREATED', 'DISPATCHED', 'IN_TRANSIT'] } } }),
@@ -32,17 +32,41 @@ async function getStats(req, res) {
       });
     }
 
-    if (role === 'DISPATCHER') {
+    if (role === 'DISPATCHER' || role === 'OPS_MANAGER' || role === 'SUPPORT' || role === 'TEAM_MANAGER') {
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const teamId = req.user.teamId;
+      // Dispatchers see own loads; Team Managers + OPS see full team scope
+      const scope = role === 'DISPATCHER'
+        ? { createdById: userId }
+        : (teamId ? { teamId } : {});
       const [myActiveLoads, loadsThisMonth, pendingQuotes] = await Promise.all([
-        prisma.load.count({ where: { organizationId: orgId, createdById: userId, status: { in: ['CREATED', 'DISPATCHED', 'IN_TRANSIT'] } } }),
-        prisma.load.count({ where: { organizationId: orgId, createdById: userId, createdAt: { gte: startOfMonth } } }),
-        prisma.quote.count({ where: { organizationId: orgId, createdById: userId, status: 'PENDING' } }),
+        prisma.load.count({ where: { organizationId: orgId, ...scope, status: { in: ['CREATED', 'DISPATCHED', 'IN_TRANSIT'] } } }),
+        prisma.load.count({ where: { organizationId: orgId, ...scope, createdAt: { gte: startOfMonth } } }),
+        prisma.quote.count({ where: { organizationId: orgId, ...(teamId ? { teamId } : {}), status: 'PENDING' } }),
       ]);
       return res.json({ myActiveLoads, loadsThisMonth, pendingQuotes });
     }
 
-    if (role === 'ACCOUNTING') {
+    if (role === 'ACCOUNT_EXEC') {
+      const [pendingQuotes, totalCustomers, wonQuotes] = await Promise.all([
+        prisma.quote.count({ where: { organizationId: orgId, createdById: userId, status: 'PENDING' } }),
+        prisma.customer.count({ where: { organizationId: orgId } }),
+        prisma.quote.count({ where: { organizationId: orgId, createdById: userId, status: 'CONVERTED' } }),
+      ]);
+      return res.json({ pendingQuotes, totalCustomers, wonQuotes });
+    }
+
+    if (role === 'CARRIER_RELATIONS') {
+      const thirtyDays = THIRTY_DAYS_AHEAD();
+      const [activeCarriers, expiringInsurance, pendingOnboarding] = await Promise.all([
+        prisma.carrier.count({ where: { organizationId: orgId, status: 'ACTIVE' } }),
+        prisma.carrier.count({ where: { organizationId: orgId, status: 'ACTIVE', insuranceExpiry: { lt: thirtyDays } } }),
+        prisma.carrier.count({ where: { organizationId: orgId, status: 'INACTIVE' } }),
+      ]);
+      return res.json({ activeCarriers, expiringInsurance, pendingOnboarding });
+    }
+
+    if (role === 'ACCOUNTING' || role === 'AUDITOR') {
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       const [pendingInvoices, overduePayments, paidThisMonth] = await Promise.all([
         prisma.invoice.count({ where: { load: { organizationId: orgId }, status: { in: ['DRAFT', 'SENT'] } } }),
@@ -69,4 +93,49 @@ async function getStats(req, res) {
   }
 }
 
-module.exports = { getStats };
+async function getTeamOverview(req, res) {
+  try {
+    const { organizationId, teamId } = req.user;
+    if (!teamId) return res.json([]);
+
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const activeStatuses = ['CREATED', 'BOOKED', 'DISPATCHED', 'DRIVER_ON_ROUTE', 'LOADING', 'ON_ROUTE', 'IN_TRANSIT', 'UNLOADING'];
+
+    const members = await prisma.user.findMany({
+      where: {
+        organizationId,
+        teamId,
+        isActive: true,
+        role: { in: ['DISPATCHER', 'ACCOUNT_EXEC', 'CARRIER_RELATIONS'] },
+      },
+      select: { id: true, firstName: true, lastName: true, role: true },
+    });
+
+    const stats = await Promise.all(
+      members.map(async (m) => {
+        const [activeLoads, loadsThisWeek, revenueAgg] = await Promise.all([
+          prisma.load.count({ where: { organizationId, assignedTo: m.id, status: { in: activeStatuses } } }),
+          prisma.load.count({ where: { organizationId, assignedTo: m.id, createdAt: { gte: sevenDaysAgo } } }),
+          prisma.load.aggregate({
+            where: { organizationId, assignedTo: m.id, createdAt: { gte: startOfMonth } },
+            _sum: { customerRate: true },
+          }),
+        ]);
+        return {
+          user: m,
+          activeLoads,
+          loadsThisWeek,
+          revenueMTD: revenueAgg._sum.customerRate || 0,
+        };
+      })
+    );
+
+    res.json(stats);
+  } catch (err) {
+    console.error('getTeamOverview error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getStats, getTeamOverview };

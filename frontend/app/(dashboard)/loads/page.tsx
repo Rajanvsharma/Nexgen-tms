@@ -7,6 +7,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import { VoiceNegotiateModal } from '@/components/ui/VoiceNegotiateModal';
 import { toast } from '@/store/toast.store';
 import { useBrandingStore } from '@/store/branding.store';
+import { useAuthStore } from '@/store/auth.store';
 import api from '@/lib/api';
 import { useSocket } from '@/hooks/useSocket';
 
@@ -21,8 +22,10 @@ interface Load {
   isDuplicate: boolean;
   customer: { id: string; name: string };
   carrier: { id: string; name: string; mcNumber: string } | null;
+  assignedUser: { id: string; firstName: string; lastName: string } | null;
   createdAt: string;
 }
+interface OrgUser { id: string; firstName: string; lastName: string; role: string; teamId?: string | null; }
 interface Customer { id: string; name: string; }
 interface Carrier  { id: string; name: string; mcNumber: string; }
 
@@ -80,13 +83,27 @@ function fmtMoney(n: number | null) { return n != null ? `$${n.toLocaleString('e
 export default function LoadsPage() {
   const { branding } = useBrandingStore();
   const primary = branding.primaryColor;
+  const { user: authUser } = useAuthStore();
+  const role = authUser?.role;
+  const isManager = role === 'TEAM_MANAGER' || role === 'OPS_MANAGER' || role === 'SUPER_ADMIN' || role === 'ADMIN';
+  const isRep = role === 'DISPATCHER' || role === 'ACCOUNT_EXEC' || role === 'CARRIER_RELATIONS';
 
   const [loads, setLoads] = useState<Load[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
+  const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Rep scope toggle (only visible when rep is on a team with repVisibility='team')
+  const [scopeFilter, setScopeFilter] = useState<'own' | 'team'>('own');
+  // Team Manager: filter by specific rep
+  const [repFilter, setRepFilter] = useState('');
+  // Reassign dialog
+  const [reassignLoad, setReassignLoad] = useState<Load | null>(null);
+  const [reassignUserId, setReassignUserId] = useState('');
+  const [reassigning, setReassigning] = useState(false);
 
   const [slideOpen, setSlideOpen] = useState(false);
   const [editing, setEditing] = useState<Load | null>(null);
@@ -151,13 +168,26 @@ export default function LoadsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [lRes, cRes, carRes] = await Promise.all([
-        api.get('/loads'), api.get('/customers'), api.get('/carriers'),
+      const params: Record<string, string> = {};
+      // Manager rep-filter: show loads for a specific rep
+      if (repFilter) params.assignedTo = repFilter;
+      // Rep with team visibility toggled to 'own': add assignedTo filter for themselves
+      if (isRep && authUser?.repVisibility === 'team' && scopeFilter === 'own' && authUser?.id) {
+        params.assignedTo = authUser.id;
+      }
+      const [lRes, cRes, carRes, uRes] = await Promise.all([
+        api.get('/loads', { params }),
+        api.get('/customers'),
+        api.get('/carriers'),
+        isManager ? api.get('/users') : Promise.resolve({ data: [] }),
       ]);
-      setLoads(lRes.data.loads ?? lRes.data); setCustomers(cRes.data); setCarriers(carRes.data);
+      setLoads(lRes.data.loads ?? lRes.data);
+      setCustomers(cRes.data);
+      setCarriers(carRes.data);
+      setOrgUsers(uRes.data);
     } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
-  }, []);
+  }, [repFilter, scopeFilter, isManager, isRep, authUser?.repVisibility, authUser?.id]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -252,6 +282,23 @@ export default function LoadsPage() {
       setLoads(ls => ls.map(l => l.id === id ? { ...l, status } : l));
       toast.success('Status updated', status);
     } catch { toast.error('Failed to update status'); }
+  }
+
+  async function handleReassign() {
+    if (!reassignLoad || !reassignUserId) return;
+    setReassigning(true);
+    try {
+      const { data: updated } = await api.patch(`/loads/${reassignLoad.id}/assign`, { assignedTo: reassignUserId });
+      setLoads(ls => ls.map(l => l.id === reassignLoad.id ? { ...l, assignedUser: updated.assignedUser } : l));
+      toast.success('Load reassigned');
+      setReassignLoad(null);
+      setReassignUserId('');
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Failed to reassign load');
+    } finally {
+      setReassigning(false);
+    }
   }
 
   // ── CSV Export ──────────────────────────────────────────────────────────────
@@ -413,6 +460,37 @@ export default function LoadsPage() {
           </button>
         </div>
 
+        {/* ── Scope toggle (rep roles with team visibility) + Rep filter (managers) ── */}
+        {(isRep && authUser?.repVisibility === 'team') || (role === 'TEAM_MANAGER') ? (
+          <div style={{ background: '#fff', borderBottom: '1px solid #f1f5f9', padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+            {isRep && authUser?.repVisibility === 'team' && (
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['own', 'team'] as const).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setScopeFilter(s)}
+                    style={{ padding: '5px 14px', borderRadius: 20, border: `1.5px solid ${scopeFilter === s ? primary : '#e2e8f0'}`, background: scopeFilter === s ? primary : '#fff', color: scopeFilter === s ? '#fff' : '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {s === 'own' ? 'My Loads' : 'Team Loads'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {role === 'TEAM_MANAGER' && orgUsers.filter(u => u.teamId === authUser?.teamId).length > 0 && (
+              <select
+                value={repFilter}
+                onChange={e => setRepFilter(e.target.value)}
+                style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#334155', outline: 'none', background: '#fff' }}
+              >
+                <option value="">All Reps</option>
+                {orgUsers.filter(u => u.teamId === authUser?.teamId && ['DISPATCHER', 'ACCOUNT_EXEC', 'CARRIER_RELATIONS'].includes(u.role)).map(u => (
+                  <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        ) : null}
+
         {/* ── Status pills ── */}
         <div style={{ background: '#fff', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 4, overflowX: 'auto', padding: '8px 24px', scrollbarWidth: 'none' }}>
@@ -475,7 +553,9 @@ export default function LoadsPage() {
                       style={{ cursor: 'pointer', width: 14, height: 14 }}
                     />
                   </th>
-                  {['Load #','Customer','Route','Equipment','Customer Rate','Carrier Rate','Margin','Pickup','Status','Actions'].map(h => (
+                  {['Load #','Customer','Route','Equipment','Customer Rate','Carrier Rate','Margin','Pickup',
+                    ...(isManager ? ['Assigned To'] : []),
+                    'Status','Actions'].map(h => (
                     <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -512,6 +592,15 @@ export default function LoadsPage() {
                         ) : '—'}
                       </td>
                       <td style={{ padding: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(l.pickupDate)}</td>
+                      {isManager && (
+                        <td style={{ padding: '12px', color: '#334155', fontSize: 12 }}>
+                          {l.assignedUser ? (
+                            <span style={{ fontWeight: 500 }}>{l.assignedUser.firstName} {l.assignedUser.lastName}</span>
+                          ) : (
+                            <span style={{ color: '#cbd5e1' }}>—</span>
+                          )}
+                        </td>
+                      )}
                       <td style={{ padding: '12px' }}>
                         <select
                           value={l.status}
@@ -526,6 +615,9 @@ export default function LoadsPage() {
                           <a href={`/loads/${l.id}`} title="View Detail" style={{ padding: '5px 10px', background: '#dbeafe', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none' }}>View</a>
                           <button onClick={() => openEdit(l)} title="Edit" style={{ padding: '5px 10px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#475569', fontWeight: 600 }}>✏ Edit</button>
                           <button onClick={() => setVoiceLoad(l)} title="AI Negotiate" style={{ padding: '5px 10px', background: '#ede9fe', border: '1px solid #ddd6fe', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#7c3aed', fontWeight: 600 }}>🤖 AI</button>
+                          {isManager && (
+                            <button onClick={() => { setReassignLoad(l); setReassignUserId(l.assignedUser?.id || ''); }} title="Reassign" style={{ padding: '5px 10px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#92400e', fontWeight: 600 }}>↗ Assign</button>
+                          )}
                           <button onClick={() => setDeleteTarget(l)} title="Delete" style={{ padding: '5px 8px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#dc2626', fontWeight: 700 }}>✕</button>
                         </div>
                       </td>
@@ -665,6 +757,38 @@ export default function LoadsPage() {
             loadData();
           }}
         />
+      )}
+
+      {/* ── Reassign Modal ── */}
+      {reassignLoad && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Assign Load</div>
+            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>{reassignLoad.loadNumber} · {reassignLoad.pickupCity} → {reassignLoad.deliveryCity}</div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Assign To</label>
+              <select
+                value={reassignUserId}
+                onChange={e => setReassignUserId(e.target.value)}
+                style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 13, color: '#0f172a', outline: 'none', background: '#fff' }}
+              >
+                <option value="">Select a rep…</option>
+                {orgUsers
+                  .filter(u => ['DISPATCHER', 'ACCOUNT_EXEC', 'CARRIER_RELATIONS'].includes(u.role))
+                  .filter(u => role === 'TEAM_MANAGER' ? u.teamId === authUser?.teamId : true)
+                  .map(u => (
+                    <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.role})</option>
+                  ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setReassignLoad(null); setReassignUserId(''); }} style={{ padding: '9px 20px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#475569' }}>Cancel</button>
+              <button onClick={handleReassign} disabled={!reassignUserId || reassigning} style={{ padding: '9px 22px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: !reassignUserId || reassigning ? 0.6 : 1 }}>
+                {reassigning ? 'Assigning…' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

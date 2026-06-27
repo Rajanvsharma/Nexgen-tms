@@ -11,11 +11,19 @@ datasource db {
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
+  OPS_MANAGER
+  TEAM_MANAGER
   DISPATCHER
+  ACCOUNT_EXEC
+  CARRIER_RELATIONS
   ACCOUNTING
   COMPLIANCE
+  SUPPORT
+  AUDITOR
   CUSTOMER
+  CARRIER
 }
 
 enum QuoteStatus {
@@ -110,6 +118,7 @@ model Organization {
   updatedAt            DateTime  @updatedAt
 
   users         User[]
+  teams         Team[]
   customers     Customer[]
   carriers      Carrier[]
   quotes        Quote[]
@@ -139,17 +148,24 @@ model User {
   totpEnabled       Boolean            @default(false)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  teamId            String?
+  team              Team?              @relation("TeamMembers", fields: [teamId], references: [id])
+  managedTeam       Team[]             @relation("TeamManager")
   customerId        String?
   portalCustomer    Customer?          @relation("PortalAccount", fields: [customerId], references: [id])
+  carrierId         String?
+  carrierAccount    Carrier?           @relation("CarrierPortalAccount", fields: [carrierId], references: [id])
   refreshTokens     RefreshToken[]
   announcementsRead AnnouncementRead[]
   announcements     Announcement[]
   customers         Customer[]
   quotes            Quote[]
   loads             Load[]
+  assignedLoads     Load[]             @relation("LoadAssignee")
   emailConfigs      EmailConfig[]
   notes             Note[]
   auditLogs         AuditLog[]
+  loadAuditLogs     LoadAuditLog[]
   documents         Document[]
   ocrLogs           OcrLog[]
   conversations     Conversation[]
@@ -157,6 +173,29 @@ model User {
   pods              ProofOfDelivery[]
   accessorials      Accessorial[]
 
+  @@index([organizationId])
+  @@index([teamId])
+}
+
+// ─── Teams ────────────────────────────────────────────────────────────────────
+
+model Team {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  managerId      String?
+  manager        User?        @relation("TeamManager", fields: [managerId], references: [id])
+  isActive       Boolean      @default(true)
+  repVisibility  String       @default("own")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  members        User[]       @relation("TeamMembers")
+  loads          Load[]
+  quotes         Quote[]
+  customers      Customer[]
+
+  @@unique([organizationId, name])
   @@index([organizationId])
 }
 
@@ -214,6 +253,8 @@ model Customer {
   creditLimit    Float?
   notes          String?
   isActive       Boolean  @default(true)
+  teamId         String?
+  team           Team?    @relation(fields: [teamId], references: [id])
   createdById    String
   createdBy      User     @relation(fields: [createdById], references: [id])
   createdAt      DateTime @default(now())
@@ -226,6 +267,7 @@ model Customer {
   userAccounts   User[]   @relation("PortalAccount")
 
   @@index([organizationId])
+  @@index([teamId])
 }
 
 // ─── Carriers ─────────────────────────────────────────────────────────────────
@@ -260,6 +302,7 @@ model Carrier {
   performances      LoadPerformance[]
   noteEntries       Note[]
   conversations     Conversation[]
+  portalUsers       User[]        @relation("CarrierPortalAccount")
 
   @@unique([mcNumber, organizationId])
   @@index([organizationId])
@@ -299,6 +342,8 @@ model Quote {
   rate                Float
   specialInstructions String?
   source              String?
+  teamId              String?
+  team                Team?       @relation(fields: [teamId], references: [id])
   createdById         String
   createdBy           User        @relation(fields: [createdById], references: [id])
   createdAt           DateTime    @default(now())
@@ -306,6 +351,7 @@ model Quote {
   load                Load?
 
   @@index([organizationId])
+  @@index([teamId])
 }
 
 // ─── Loads ────────────────────────────────────────────────────────────────────
@@ -342,6 +388,10 @@ model Load {
   trackingLng         Float?
   trackingUpdatedAt   DateTime?
   trackingHistory     Json?
+  teamId              String?
+  team                Team?      @relation(fields: [teamId], references: [id])
+  assignedTo          String?
+  assignedUser        User?      @relation("LoadAssignee", fields: [assignedTo], references: [id])
   createdById         String
   createdBy           User       @relation(fields: [createdById], references: [id])
   createdAt           DateTime   @default(now())
@@ -357,12 +407,15 @@ model Load {
   pods                ProofOfDelivery[]
   accessorials        Accessorial[]
   stops               LoadStop[]
+  auditLog            LoadAuditLog[]
 
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([organizationId, createdAt])
   @@index([organizationId, pickupDate])
   @@index([customerId])
+  @@index([teamId])
+  @@index([assignedTo])
 }
 
 // ─── Accounting ───────────────────────────────────────────────────────────────
@@ -523,6 +576,22 @@ model AuditLog {
   @@index([organizationId])
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+// ─── Load Audit Log ───────────────────────────────────────────────────────────
+
+model LoadAuditLog {
+  id          String   @id @default(cuid())
+  loadId      String
+  load        Load     @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  action      String   // "assigned" | "reassigned" | "status_changed"
+  fromValue   String?
+  toValue     String?
+  changedById String
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now())
+
+  @@index([loadId])
 }
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────

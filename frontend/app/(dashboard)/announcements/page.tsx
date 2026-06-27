@@ -20,7 +20,7 @@ interface Announcement {
   isRead: boolean;
 }
 
-const CAN_POST = ['ADMIN', 'ACCOUNTING', 'COMPLIANCE'];
+const CAN_POST = ['SUPER_ADMIN', 'ADMIN', 'OPS_MANAGER', 'ACCOUNTING', 'COMPLIANCE'];
 
 export default function AnnouncementsPage() {
   const { user } = useAuthStore();

@@ -44,6 +44,7 @@ export default function LoginPage() {
       const { data: me } = await api.get('/auth/me');
       setUser(me, data.accessToken);
       if (me.role === 'CUSTOMER') { router.replace('/shipper'); return; }
+      if (me.role === 'CARRIER') { router.replace('/carrier-portal'); return; }
       router.replace('/dashboard');
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err) ? err.response?.data?.message : 'Login failed';

@@ -6,7 +6,7 @@ const { requireRole } = require('../middleware/role.middleware');
 router.use(verifyToken);
 
 router.get('/', getAnnouncements);
-router.post('/', requireRole('ADMIN', 'ACCOUNTING', 'COMPLIANCE'), createAnnouncement);
+router.post('/', requireRole('ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'ACCOUNTING', 'COMPLIANCE'), createAnnouncement);
 router.patch('/:id/read', markRead);
 router.delete('/:id', requireRole('ADMIN'), deactivateAnnouncement);
 

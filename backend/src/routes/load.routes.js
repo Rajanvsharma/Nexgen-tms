@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate } = require('../controllers/load.controller');
+const { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate, assignLoad, getLoadAudit } = require('../controllers/load.controller');
 const { bulkUpdateStatus, bulkDelete, bulkInvoice } = require('../controllers/bulk.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
 
@@ -11,6 +11,8 @@ router.post('/', createLoad);
 router.put('/:id', updateLoad);
 router.delete('/:id', deleteLoad);
 router.post('/:id/dispatch', dispatchLoad);
+router.patch('/:id/assign', assignLoad);
+router.get('/:id/audit', getLoadAudit);
 
 // Bulk operations
 router.post('/bulk/status',  bulkUpdateStatus);

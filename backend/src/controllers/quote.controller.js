@@ -1,4 +1,5 @@
 ﻿const prisma = require('../services/prisma.service');
+const { getVisibilityFilter } = require('../middleware/visibility.middleware');
 
 async function nextQuoteNumber(orgId) {
   const quotes = await prisma.quote.findMany({
@@ -16,9 +17,7 @@ async function nextQuoteNumber(orgId) {
 
 async function getQuotes(req, res) {
   try {
-    const orgId = req.user.organizationId;
-    const where = { organizationId: orgId };
-    if (req.user.role !== 'ADMIN') where.createdById = req.user.id;
+    const where = { ...getVisibilityFilter(req.user) };
 
     const quotes = await prisma.quote.findMany({
       where,
@@ -57,7 +56,7 @@ async function createQuote(req, res) {
     const quoteNumber = await nextQuoteNumber(orgId);
     const quote = await prisma.quote.create({
       data: {
-        organizationId: orgId, quoteNumber, customerId,
+        organizationId: orgId, quoteNumber, customerId, teamId: req.user.teamId || null,
         pickupCity, pickupState, deliveryCity, deliveryState,
         commodity, weight: weight ? parseFloat(weight) : null, equipment,
         pickupDate: pickupDate ? new Date(pickupDate) : null,

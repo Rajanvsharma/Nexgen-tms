@@ -2,13 +2,13 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { sendShipperInviteEmail } = require('../services/outbound.service');
+const { getVisibilityFilter } = require('../middleware/visibility.middleware');
 
 const CREDIT_EXCLUDED = ['CANCELLED', 'COMPLETED', 'RECEIVED'];
 
 async function getCustomers(req, res) {
   try {
-    const orgId = req.user.organizationId;
-    const where = { organizationId: orgId };
+    const where = { ...getVisibilityFilter(req.user) };
 
     const customers = await prisma.customer.findMany({
       where,
@@ -59,7 +59,7 @@ async function createCustomer(req, res) {
         organizationId: orgId, name, email, phone, address, city, state, zipCode,
         creditTerms: creditTerms || 30,
         creditLimit: creditLimit ? parseFloat(creditLimit) : null,
-        notes, createdById: req.user.id,
+        notes, createdById: req.user.id, teamId: req.user.teamId || null,
       },
     });
     res.status(201).json(customer);

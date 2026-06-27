@@ -23,7 +23,10 @@ const CARRIER_STATUS_COLORS: Record<string,string> = {
 };
 
 const ROLE_COLORS: Record<string,string> = {
-  ADMIN:'#3b82f6', DISPATCHER:'#10b981', ACCOUNTING:'#f59e0b', COMPLIANCE:'#8b5cf6',
+  SUPER_ADMIN:'#ef4444', ADMIN:'#3b82f6', OPS_MANAGER:'#6366f1', TEAM_MANAGER:'#ec4899',
+  DISPATCHER:'#10b981', ACCOUNT_EXEC:'#06b6d4', CARRIER_RELATIONS:'#14b8a6',
+  ACCOUNTING:'#f59e0b', COMPLIANCE:'#8b5cf6', SUPPORT:'#0ea5e9', AUDITOR:'#a855f7',
+  CUSTOMER:'#f97316', CARRIER:'#d97706',
 };
 
 // ─── Trend badge ─────────────────────────────────────────────────────────────

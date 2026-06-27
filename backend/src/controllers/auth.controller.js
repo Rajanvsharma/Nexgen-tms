@@ -76,7 +76,10 @@ async function login(req, res) {
 
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { organization: { select: { id: true, name: true, slug: true, plan: true, subscriptionStatus: true, trialEndsAt: true } } },
+      include: {
+        organization: { select: { id: true, name: true, slug: true, plan: true, subscriptionStatus: true, trialEndsAt: true } },
+        team: { select: { repVisibility: true } },
+      },
     });
     if (!user || !user.isActive) return res.status(401).json({ message: 'Invalid credentials' });
 
@@ -92,14 +95,18 @@ async function login(req, res) {
 
     const accessToken = generateAccessToken({
       id: user.id, email: user.email, role: user.role,
-      organizationId: user.organizationId, customerId: user.customerId || null,
+      organizationId: user.organizationId,
+      teamId: user.teamId || null,
+      customerId: user.customerId || null,
+      carrierId: user.carrierId || null,
+      repVisibility: user.team?.repVisibility || 'own',
     });
     const refreshToken = await generateRefreshToken(user.id);
 
     res.cookie('refreshToken', refreshToken, COOKIE_OPTS);
     res.json({
       accessToken,
-      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, customerId: user.customerId || null },
+      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, teamId: user.teamId || null, customerId: user.customerId || null, carrierId: user.carrierId || null, repVisibility: user.team?.repVisibility || 'own' },
       organization: user.organization,
     });
   } catch (err) {
@@ -119,10 +126,13 @@ async function refresh(req, res) {
       return res.status(401).json({ message: 'Invalid or expired refresh token' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: result.userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: result.userId },
+      include: { team: { select: { repVisibility: true } } },
+    });
     if (!user || !user.isActive) return res.status(401).json({ message: 'User not found or deactivated' });
 
-    const accessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role, organizationId: user.organizationId });
+    const accessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role, organizationId: user.organizationId, teamId: user.teamId || null, customerId: user.customerId || null, carrierId: user.carrierId || null, repVisibility: user.team?.repVisibility || 'own' });
     res.cookie('refreshToken', result.newToken, COOKIE_OPTS);
     res.json({ accessToken });
   } catch (err) {
@@ -150,7 +160,9 @@ async function me(req, res) {
       where: { id: req.user.id },
       select: {
         id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, createdAt: true,
+        teamId: true, customerId: true, carrierId: true,
         organization: { select: { id: true, name: true, slug: true, plan: true, subscriptionStatus: true, trialEndsAt: true, maxUsers: true, maxLoadsPerMonth: true } },
+        team: { select: { id: true, name: true, repVisibility: true } },
       },
     });
     if (!user) return res.status(404).json({ message: 'User not found' });

@@ -43,15 +43,18 @@ export function useInitAuth() {
   }, []);
 }
 
-export function useRequireAuth(requiredRole?: string) {
+export function useRequireAuth(requiredRole?: string | string[]) {
   const { user, isLoading } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.replace('/login');
-    } else if (!isLoading && requiredRole && user?.role !== requiredRole) {
-      router.replace('/dashboard');
+    } else if (!isLoading && requiredRole && user) {
+      const allowed = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+      if (!allowed.includes(user.role) && user.role !== 'SUPER_ADMIN') {
+        router.replace('/dashboard');
+      }
     }
   }, [user, isLoading, requiredRole, router]);
 

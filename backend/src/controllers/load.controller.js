@@ -1,20 +1,21 @@
 ﻿const prisma = require('../services/prisma.service');
 const { emitToOrg }   = require('../services/socket.service');
 const { fireWorkflowEvent } = require('../services/workflow.service');
+const { getVisibilityFilter } = require('../middleware/visibility.middleware');
+const { logLoadAction } = require('../services/audit.service');
 
 const LOAD_INCLUDE = {
   customer: { select: { id: true, name: true } },
   carrier: { select: { id: true, name: true, mcNumber: true } },
   createdBy: { select: { firstName: true, lastName: true } },
+  assignedUser: { select: { id: true, firstName: true, lastName: true } },
 };
 
 async function getLoads(req, res) {
   try {
-    const orgId = req.user.organizationId;
-    const where = { organizationId: orgId };
-    // Fix #3: all org roles can see all loads (CUSTOMER role already goes through portal)
-    if (req.user.role === 'CUSTOMER') where.customerId = req.user.customerId;
+    const where = { ...getVisibilityFilter(req.user) };
     if (req.query.status) where.status = req.query.status;
+    if (req.query.assignedTo) where.assignedTo = req.query.assignedTo;
     if (req.query.search) {
       const s = req.query.search;
       where.OR = [
@@ -138,7 +139,7 @@ async function createLoad(req, res) {
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         customerRate: cust, carrierRate: cr,
         margin: cr ? parseFloat(((cust - cr) / cust * 100).toFixed(2)) : null,
-        specialInstructions, createdById: req.user.id,
+        specialInstructions, createdById: req.user.id, teamId: req.user.teamId || null,
       },
       include: LOAD_INCLUDE,
     });
@@ -265,4 +266,74 @@ async function dispatchLoad(req, res) {
   }
 }
 
-module.exports = { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate };
+async function assignLoad(req, res) {
+  try {
+    const { id } = req.params;
+    const { assignedTo } = req.body;
+    if (!assignedTo) return res.status(400).json({ message: 'assignedTo is required' });
+
+    const load = await prisma.load.findFirst({
+      where: { id, organizationId: req.user.organizationId },
+      select: { id: true, loadNumber: true, assignedTo: true },
+    });
+    if (!load) return res.status(404).json({ message: 'Load not found' });
+
+    const role = req.user.role;
+    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'OPS_MANAGER';
+
+    // TEAM_MANAGER can only assign within their own team
+    if (!isSuperAdmin) {
+      const assignee = await prisma.user.findFirst({
+        where: { id: assignedTo, organizationId: req.user.organizationId, teamId: req.user.teamId },
+      });
+      if (!assignee) return res.status(403).json({ message: 'Assignee must be a member of your team' });
+    } else {
+      const assignee = await prisma.user.findFirst({
+        where: { id: assignedTo, organizationId: req.user.organizationId },
+      });
+      if (!assignee) return res.status(404).json({ message: 'Assignee not found' });
+    }
+
+    const isReassign = !!load.assignedTo;
+    const [updated] = await prisma.$transaction([
+      prisma.load.update({ where: { id }, data: { assignedTo }, include: LOAD_INCLUDE }),
+      prisma.loadAuditLog.create({
+        data: {
+          loadId: id,
+          action: isReassign ? 'reassigned' : 'assigned',
+          fromValue: load.assignedTo ?? null,
+          toValue: assignedTo,
+          changedById: req.user.id,
+        },
+      }),
+    ]);
+
+    res.json(updated);
+  } catch (err) {
+    console.error('assignLoad error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+async function getLoadAudit(req, res) {
+  try {
+    const { id } = req.params;
+    const load = await prisma.load.findFirst({
+      where: { id, organizationId: req.user.organizationId },
+      select: { id: true },
+    });
+    if (!load) return res.status(404).json({ message: 'Load not found' });
+
+    const entries = await prisma.loadAuditLog.findMany({
+      where: { loadId: id },
+      orderBy: { changedAt: 'desc' },
+      include: { changedBy: { select: { id: true, firstName: true, lastName: true, role: true } } },
+    });
+    res.json(entries);
+  } catch (err) {
+    console.error('getLoadAudit error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate, assignLoad, getLoadAudit };

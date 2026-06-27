@@ -6,7 +6,9 @@ const { sendUserInviteEmail } = require('../services/outbound.service');
 
 const SAFE_SELECT = {
   id: true, email: true, firstName: true, lastName: true,
-  role: true, isActive: true, customerId: true, createdAt: true, updatedAt: true,
+  role: true, isActive: true, teamId: true, customerId: true, carrierId: true,
+  createdAt: true, updatedAt: true,
+  team: { select: { id: true, name: true } },
 };
 
 async function getUsers(req, res) {
@@ -26,7 +28,7 @@ async function getUsers(req, res) {
 async function createUser(req, res) {
   try {
     const orgId = req.user.organizationId;
-    const { email, password, firstName, lastName, role, customerId } = req.body;
+    const { email, password, firstName, lastName, role, customerId, teamId, carrierId } = req.body;
     if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({ message: 'email, password, firstName, lastName are required' });
     }
@@ -44,6 +46,8 @@ async function createUser(req, res) {
     const hashed = await bcrypt.hash(password, 12);
     const data = { organizationId: orgId, email, password: hashed, firstName, lastName, role: role || 'DISPATCHER' };
     if (customerId) data.customerId = customerId;
+    if (teamId) data.teamId = teamId;
+    if (carrierId) data.carrierId = carrierId;
 
     const user = await prisma.user.create({ data, select: SAFE_SELECT });
     res.status(201).json(user);
@@ -59,13 +63,16 @@ async function updateUser(req, res) {
     const target = await prisma.user.findFirst({ where: { id, organizationId: req.user.organizationId } });
     if (!target) return res.status(404).json({ message: 'User not found' });
 
-    const { firstName, lastName, role, isActive, password } = req.body;
+    const { firstName, lastName, role, isActive, password, teamId, customerId, carrierId } = req.body;
     const data = {};
     if (firstName !== undefined) data.firstName = firstName;
     if (lastName !== undefined) data.lastName = lastName;
     if (role !== undefined) data.role = role;
     if (isActive !== undefined) data.isActive = isActive;
     if (password) data.password = await bcrypt.hash(password, 12);
+    if (teamId !== undefined) data.teamId = teamId || null;
+    if (customerId !== undefined) data.customerId = customerId || null;
+    if (carrierId !== undefined) data.carrierId = carrierId || null;
 
     const user = await prisma.user.update({ where: { id }, data, select: SAFE_SELECT });
     res.json(user);
@@ -92,7 +99,7 @@ async function deleteUser(req, res) {
 async function inviteUser(req, res) {
   try {
     const orgId = req.user.organizationId;
-    const { email, firstName, lastName, role } = req.body;
+    const { email, firstName, lastName, role, teamId } = req.body;
     if (!email || !firstName || !lastName) {
       return res.status(400).json({ message: 'email, firstName, and lastName are required' });
     }
@@ -119,6 +126,7 @@ async function inviteUser(req, res) {
         firstName,
         lastName,
         role: role || 'DISPATCHER',
+        teamId: teamId || null,
         isActive: true,
         resetToken: hashedToken,
         resetTokenExpiry: expiry,

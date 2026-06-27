@@ -69,8 +69,8 @@ const NAV: NavGroup[] = [
   {
     label: 'Finance',
     items: [
-      { id: 'accounting', label: 'Accounting', icon: <DollarIcon />, href: '/accounting', roles: ['ADMIN', 'ACCOUNTING'] },
-      { id: 'reports',    label: 'Reports',    icon: <ChartIcon />,  href: '/reports',    roles: ['ADMIN', 'ACCOUNTING'] },
+      { id: 'accounting', label: 'Accounting', icon: <DollarIcon />, href: '/accounting', roles: ['ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'TEAM_MANAGER', 'ACCOUNTING', 'AUDITOR'] },
+      { id: 'reports',    label: 'Reports',    icon: <ChartIcon />,  href: '/reports',    roles: ['ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'TEAM_MANAGER', 'ACCOUNTING', 'AUDITOR'] },
     ],
     divider: true,
   },
@@ -78,7 +78,7 @@ const NAV: NavGroup[] = [
     label: 'Operations',
     items: [
       { id: 'carriers',   label: 'Carrier Network', icon: <NetworkIcon />, href: '/carriers' },
-      { id: 'compliance', label: 'Compliance',       icon: <ShieldIcon />, href: '/compliance', roles: ['ADMIN', 'COMPLIANCE'] },
+      { id: 'compliance', label: 'Compliance',       icon: <ShieldIcon />, href: '/compliance', roles: ['ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'TEAM_MANAGER', 'COMPLIANCE', 'AUDITOR'] },
       { id: 'ai-hub',     label: 'AI Hub',            icon: <StarIcon />,   href: '/ai-hub',  tag: 'AI' },
       { id: 'intake',     label: 'AI Intake',         icon: <BotIcon />,    href: '/intake',  tag: 'AI' },
       { id: 'workflows',  label: 'Automation',        icon: <FlowIcon />,   href: '/workflows' },
@@ -90,8 +90,8 @@ const NAV: NavGroup[] = [
     items: [
       { id: 'console',       label: 'Console',        icon: <ChatIcon />,   href: '/console' },
       { id: 'announcements', label: 'Announcements',  icon: <MegaIcon />,   href: '/announcements' },
-      { id: 'branding',      label: 'White Label',    icon: <PaintIcon />,  href: '/branding',  roles: ['ADMIN'] },
-      { id: 'users',         label: 'Org Management', icon: <BuildIcon />,  href: '/users',     roles: ['ADMIN'] },
+      { id: 'branding',      label: 'White Label',    icon: <PaintIcon />,  href: '/branding',  roles: ['ADMIN', 'SUPER_ADMIN'] },
+      { id: 'users',         label: 'Org Management', icon: <BuildIcon />,  href: '/users',     roles: ['ADMIN', 'SUPER_ADMIN'] },
       { id: 'settings',      label: 'Settings',       icon: <GearIcon />,   href: '/settings' },
     ],
   },

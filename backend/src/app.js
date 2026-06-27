@@ -41,6 +41,7 @@ const searchRoutes       = require('./routes/search.routes');
 const laneRoutes         = require('./routes/lane.routes');
 const webhookRoutes      = require('./routes/webhook.routes');
 const workflowRoutes     = require('./routes/workflow.routes');
+const teamRoutes         = require('./routes/team.routes');
 const { startAgentScheduler } = require('./services/agents.service');
 const { runDailyScan }   = require('./services/workflow.service');
 const { initSocket }     = require('./services/socket.service');
@@ -110,6 +111,7 @@ app.use('/api/search',       apiLimiter, searchRoutes);
 app.use('/api/lanes',        laneRoutes);
 app.use('/api/webhooks',     webhookRoutes);
 app.use('/api/workflows',    workflowRoutes);
+app.use('/api/teams',        teamRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: Date.now(), version: process.env.npm_package_version || '1.0.0' }));
 

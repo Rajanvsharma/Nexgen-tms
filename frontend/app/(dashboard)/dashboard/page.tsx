@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import api from '@/lib/api';
 import { ALL_CLOCKS, DEFAULT_CLOCK_TZS, loadClockPrefs } from '@/lib/world-clocks';
+import TeamOverviewWidget from '@/components/dashboard/TeamOverviewWidget';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Stats {
@@ -233,6 +234,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* ── Team Overview (TEAM_MANAGER only) ── */}
+        {user?.role === 'TEAM_MANAGER' && <TeamOverviewWidget />}
+
         {/* ── Bottom Row: Market Pulse | Recent Loads | Notifications ── */}
         <div className="bottom-row-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1fr', gap: 16 }}>
 
@@ -329,7 +333,7 @@ export default function DashboardPage() {
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
               >
                 <div style={{ width: 32, height: 32, background: ann.isRead ? '#f1f5f9' : '#eff6ff', borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>
-                  {ann.posterRole === 'COMPLIANCE' ? '🛡' : ann.posterRole === 'ACCOUNTING' ? '💰' : '📢'}
+                  {ann.posterRole === 'COMPLIANCE' ? '🛡' : ann.posterRole === 'ACCOUNTING' || ann.posterRole === 'AUDITOR' ? '💰' : ann.posterRole === 'OPS_MANAGER' || ann.posterRole === 'SUPER_ADMIN' ? '⚙️' : '📢'}
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ fontSize: 12, fontWeight: ann.isRead ? 400 : 600, color: '#15202b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ann.title}</div>

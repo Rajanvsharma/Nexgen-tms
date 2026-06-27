@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { setAccessToken } from '@/lib/api';
 
-export type Role = 'ADMIN' | 'DISPATCHER' | 'ACCOUNTING' | 'COMPLIANCE' | 'CUSTOMER';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'OPS_MANAGER' | 'TEAM_MANAGER' | 'DISPATCHER' | 'ACCOUNT_EXEC' | 'CARRIER_RELATIONS' | 'ACCOUNTING' | 'COMPLIANCE' | 'SUPPORT' | 'AUDITOR' | 'CUSTOMER' | 'CARRIER';
 
 export interface AuthUser {
   id: string;
@@ -10,7 +10,10 @@ export interface AuthUser {
   lastName: string;
   role: Role;
   organizationId?: string | null;
+  teamId?: string | null;
   customerId?: string | null;
+  carrierId?: string | null;
+  repVisibility?: 'own' | 'team' | null;
 }
 
 interface AuthState {
