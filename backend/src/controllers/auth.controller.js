@@ -208,7 +208,7 @@ async function forgotPassword(req, res) {
 
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${rawToken}`;
     await sendPasswordResetEmail({ toEmail: user.email, firstName: user.firstName, resetUrl });
-    if (!process.env.SMTP_HOST) console.log(`[Password Reset] reset URL: ${resetUrl}`);
+    if (!process.env.RESEND_API_KEY) console.log(`[Password Reset] reset URL: ${resetUrl}`);
 
     res.json({ message: 'If that email exists, a reset link has been sent.' });
   } catch (err) {

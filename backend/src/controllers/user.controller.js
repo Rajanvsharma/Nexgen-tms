@@ -132,8 +132,8 @@ async function inviteUser(req, res) {
 
     res.status(201).json({
       user,
-      inviteUrl: !process.env.SMTP_HOST ? inviteUrl : null, // only expose link if no SMTP (admin copy/paste)
-      emailSent: !!process.env.SMTP_HOST,
+      inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
+      emailSent: !!process.env.RESEND_API_KEY,
     });
   } catch (err) {
     console.error('inviteUser error:', err);

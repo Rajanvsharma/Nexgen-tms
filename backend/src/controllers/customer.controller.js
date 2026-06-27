@@ -152,8 +152,8 @@ async function inviteShipper(req, res) {
     await sendShipperInviteEmail({ toEmail: email, firstName, companyName: customer.name, inviteUrl, invitedBy });
 
     res.status(201).json({
-      inviteUrl: !process.env.SMTP_HOST ? inviteUrl : null,
-      emailSent: !!process.env.SMTP_HOST,
+      inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
+      emailSent: !!process.env.RESEND_API_KEY,
       customerName: customer.name,
     });
   } catch (err) {
