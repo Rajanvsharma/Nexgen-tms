@@ -206,7 +206,7 @@ async function forgotPassword(req, res) {
 
     await prisma.user.update({ where: { id: user.id }, data: { resetToken: hashedToken, resetTokenExpiry: expiry } });
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${rawToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
     await sendPasswordResetEmail({ toEmail: user.email, firstName: user.firstName, resetUrl });
     if (!process.env.RESEND_API_KEY) console.log(`[Password Reset] reset URL: ${resetUrl}`);
 

@@ -1,4 +1,4 @@
-const { Resend } = require('resend');
+﻿const { Resend } = require('resend');
 
 function getClient() {
   if (!process.env.RESEND_API_KEY) return null;
@@ -6,7 +6,7 @@ function getClient() {
 }
 
 const FROM = () => process.env.EMAIL_FROM || 'NexGen TMS <noreply@transatms.com>';
-const BASE = () => (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+const BASE = () => (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app').replace(/\/$/, '');
 
 async function sendMail({ to, subject, html, attachments }) {
   const client = getClient();

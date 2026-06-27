@@ -50,7 +50,7 @@ const app = express();
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(o => o.trim().replace(/\/$/, ''));
+const allowedOrigins = (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app').split(',').map(o => o.trim().replace(/\/$/, ''));
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);

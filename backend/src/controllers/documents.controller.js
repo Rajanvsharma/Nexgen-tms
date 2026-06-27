@@ -228,7 +228,7 @@ async function sendRateConfirmation(req, res) {
     if (!load.carrier.email) return res.status(400).json({ message: 'Carrier has no email address on file' });
 
     const signToken = crypto.randomBytes(24).toString('hex');
-    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const frontendBase = (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app').replace(/\/$/, '');
     const signUrl = `${frontendBase}/sign/${signToken}`;
 
     // Generate PDF buffer
