@@ -128,17 +128,27 @@ async function inviteUser(req, res) {
 
     const inviteUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
     const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true, email: true } });
-    const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : inviter?.email || 'NexGen TMS';
-    await sendUserInviteEmail({ toEmail: email, firstName, inviteUrl, invitedBy, role: role || 'DISPATCHER' });
+    const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : 'NexGen TMS';
+
+    let emailSent = false;
+    let emailError = null;
+    try {
+      await sendUserInviteEmail({ toEmail: email, firstName, inviteUrl, invitedBy, role: role || 'DISPATCHER' });
+      emailSent = true;
+    } catch (emailErr) {
+      emailError = emailErr.message || 'Email delivery failed';
+      console.error('inviteUser email error:', emailError);
+    }
 
     res.status(201).json({
       user,
-      inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
-      emailSent: !!process.env.RESEND_API_KEY,
+      inviteUrl,
+      emailSent,
+      emailError,
     });
   } catch (err) {
     console.error('inviteUser error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: err.message || 'Internal server error' });
   }
 }
 
@@ -163,12 +173,22 @@ async function resendInvite(req, res) {
     const inviteUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
     const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true, email: true } });
     const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : 'NexGen TMS';
-    await sendUserInviteEmail({ toEmail: target.email, firstName: target.firstName, inviteUrl, invitedBy, role: target.role });
+
+    let emailSent = false;
+    let emailError = null;
+    try {
+      await sendUserInviteEmail({ toEmail: target.email, firstName: target.firstName, inviteUrl, invitedBy, role: target.role });
+      emailSent = true;
+    } catch (emailErr) {
+      emailError = emailErr.message || 'Email delivery failed';
+      console.error('resendInvite email error:', emailError);
+    }
 
     res.json({
-      message: `Invite resent to ${target.email}`,
-      inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
-      emailSent: !!process.env.RESEND_API_KEY,
+      message: emailSent ? `Invite sent to ${target.email}` : `User updated — email failed: ${emailError}`,
+      inviteUrl,
+      emailSent,
+      emailError,
     });
   } catch (err) {
     console.error('resendInvite error:', err);

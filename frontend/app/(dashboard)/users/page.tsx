@@ -49,7 +49,7 @@ export default function UsersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE);
   const [inviting, setInviting] = useState(false);
-  const [inviteResult, setInviteResult] = useState<{ emailSent: boolean; inviteUrl: string | null } | null>(null);
+  const [inviteResult, setInviteResult] = useState<{ emailSent: boolean; inviteUrl: string; emailError?: string | null } | null>(null);
   const [inviteError, setInviteError] = useState('');
 
   async function loadUsers() {
@@ -190,20 +190,22 @@ export default function UsersPage() {
                 </DialogHeader>
                 {inviteResult ? (
                   <div className="space-y-4">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+                    <div className={`border rounded-lg p-4 text-sm ${inviteResult.emailSent ? 'bg-green-50 border-green-200 text-green-700' : 'bg-yellow-50 border-yellow-200 text-yellow-800'}`}>
                       {inviteResult.emailSent
-                        ? `Invitation email sent to ${inviteForm.email}.`
-                        : 'User created. No SMTP configured — share this link manually:'}
+                        ? `✓ Invitation email sent to ${inviteForm.email}.`
+                        : `⚠ User created but email failed — share the link below manually.`}
+                      {inviteResult.emailError && (
+                        <div className="mt-1 text-xs text-red-600">{inviteResult.emailError}</div>
+                      )}
                     </div>
-                    {inviteResult.inviteUrl && (
-                      <div className="space-y-2">
-                        <Label>Invite Link (copy and share)</Label>
-                        <div className="flex gap-2">
-                          <Input readOnly value={inviteResult.inviteUrl} className="text-xs font-mono" />
-                          <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(inviteResult.inviteUrl!)}>Copy</Button>
-                        </div>
+                    <div className="space-y-2">
+                      <Label>Invite Link (copy and share)</Label>
+                      <div className="flex gap-2">
+                        <Input readOnly value={inviteResult.inviteUrl} className="text-xs font-mono" />
+                        <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(inviteResult.inviteUrl!)}>Copy</Button>
                       </div>
-                    )}
+                      <p className="text-xs text-gray-400">Link expires in 72 hours.</p>
+                    </div>
                     <Button className="w-full" onClick={() => { setInviteOpen(false); setInviteResult(null); }}>Done</Button>
                   </div>
                 ) : (
