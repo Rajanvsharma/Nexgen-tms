@@ -148,7 +148,8 @@ async function inviteShipper(req, res) {
     });
 
     const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${rawToken}`;
-    const invitedBy = `${req.user.firstName} ${req.user.lastName}`;
+    const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true, email: true } });
+    const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : inviter?.email || 'NexGen TMS';
     await sendShipperInviteEmail({ toEmail: email, firstName, companyName: customer.name, inviteUrl, invitedBy });
 
     res.status(201).json({
