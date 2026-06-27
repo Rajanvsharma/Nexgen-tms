@@ -823,66 +823,246 @@ function NotificationsTab({ primary }: { primary: string }) {
   );
 }
 
-// ─── API Keys Tab ─────────────────────────────────────────────────────────────
-function ApiTab({ primary }: { primary: string }) {
-  const [status, setStatus] = useState<'checking' | 'live' | 'demo'>('checking');
+// ─── Integrations Tab ────────────────────────────────────────────────────────
+const INTEGRATIONS = [
+  {
+    id: 'keeptruckin',
+    name: 'KeepTruckin',
+    desc: 'Enable real-time track and trace for your trucks & track driver HOS using GPS data.',
+    category: 'Track and Trace',
+    logo: { bg: '#1a1a2e', color: '#fff', text: 'KT', size: 15 },
+    envKey: 'KEEPTRUCKIN_API_KEY',
+  },
+  {
+    id: 'macropoint',
+    name: 'Macropoint',
+    desc: 'Enable real-time track and trace, so you never lose sight of a load again.',
+    category: 'Track and Trace',
+    logo: { bg: '#fff', color: '#1a4480', text: 'MP', size: 13, border: '#dde1e7' },
+    envKey: 'MACROPOINT_API_KEY',
+  },
+  {
+    id: 'office365',
+    name: 'Office 365',
+    desc: 'Send emails directly within NexGen TMS using your Office 365 account.',
+    category: 'Email',
+    logo: { bg: '#fff', color: '#d83b01', text: '365', size: 12, border: '#dde1e7' },
+    envKey: 'MICROSOFT_CLIENT_ID',
+  },
+  {
+    id: 'quickbooks',
+    name: 'QuickBooks',
+    desc: 'Export invoices and bills to QuickBooks with a click of a button.',
+    category: 'Financial',
+    logo: { bg: '#2CA01C', color: '#fff', text: 'QB', size: 14 },
+    envKey: 'QUICKBOOKS_CLIENT_ID',
+  },
+  {
+    id: 'trimble',
+    name: 'Trimble Maps',
+    desc: 'Plan and dispatch with truck routes powered by Trimble Maps.',
+    category: 'Routing',
+    logo: { bg: '#005f9e', color: '#fff', text: 'TM', size: 13 },
+    envKey: 'TRIMBLE_API_KEY',
+  },
+  {
+    id: 'truckstop',
+    name: 'TruckStop',
+    desc: 'Post available loads to TruckStop in real-time and find carriers to move your freight.',
+    category: 'Load Board',
+    logo: { bg: '#b91c1c', color: '#fff', text: 'TS', size: 13 },
+    envKey: 'TRUCKSTOP_API_KEY',
+  },
+  {
+    id: 'dat',
+    name: 'DAT Load Board',
+    desc: 'Access the largest freight marketplace in North America to post loads and find carriers.',
+    category: 'Load Board',
+    logo: { bg: '#1d4ed8', color: '#fff', text: 'DAT', size: 12 },
+    envKey: 'DAT_API_KEY',
+  },
+  {
+    id: 'project44',
+    name: 'Project44',
+    desc: 'Real-time multimodal visibility across all modes of transportation and supply chain.',
+    category: 'Track and Trace',
+    logo: { bg: '#6d28d9', color: '#fff', text: 'p44', size: 13 },
+    envKey: 'PROJECT44_API_KEY',
+  },
+  {
+    id: 'stripe',
+    name: 'Stripe',
+    desc: 'Accept online payments from shippers and customers directly within the platform.',
+    category: 'Financial',
+    logo: { bg: '#635bff', color: '#fff', text: 'S', size: 18 },
+    envKey: 'STRIPE_SECRET_KEY',
+  },
+  {
+    id: 'twilio',
+    name: 'Twilio',
+    desc: 'Send SMS notifications to drivers and customers and enable voice calling.',
+    category: 'Telephony',
+    logo: { bg: '#F22F46', color: '#fff', text: 'TW', size: 12 },
+    envKey: 'TWILIO_ACCOUNT_SID',
+  },
+  {
+    id: 'claude',
+    name: 'Claude AI',
+    desc: 'Powers AI Intake, Voice Negotiation, Email Parsing, and Copilot assistant.',
+    category: 'AI',
+    logo: { bg: '#fef3c7', color: '#92400e', text: '🤖', size: 18 },
+    envKey: 'ANTHROPIC_API_KEY',
+  },
+  {
+    id: 'fmcsa',
+    name: 'FMCSA Safer',
+    desc: 'Instantly verify carrier safety ratings, authority status, and insurance in real-time.',
+    category: 'Compliance',
+    logo: { bg: '#064e3b', color: '#fff', text: 'DOT', size: 11 },
+    envKey: 'FMCSA_API_KEY',
+  },
+] as const;
 
-  useEffect(() => {
-    api.post('/ai/negotiate', {
-      messages: [{ role: 'user', content: 'ping' }],
-      load: { id: 'test', loadNumber: 'T-001', pickupCity: 'X', pickupState: 'X', deliveryCity: 'Y', deliveryState: 'Y', equipment: 'V', customerRate: 1000 },
-    }).then(() => setStatus('live')).catch(err => {
-      const body = err?.response?.data;
-      setStatus(body?.demo ? 'demo' : 'live');
+const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  'Track and Trace': { bg: '#eff6ff', text: '#1d4ed8' },
+  'Email':           { bg: '#f0fdf4', text: '#15803d' },
+  'Financial':       { bg: '#fef9c3', text: '#854d0e' },
+  'Routing':         { bg: '#f0f9ff', text: '#0369a1' },
+  'Load Board':      { bg: '#faf5ff', text: '#7e22ce' },
+  'AI':              { bg: '#fff7ed', text: '#c2410c' },
+  'Telephony':       { bg: '#fff1f2', text: '#be123c' },
+  'Compliance':      { bg: '#f0fdf4', text: '#166534' },
+};
+
+function ApiTab({ primary }: { primary: string }) {
+  const STORAGE_KEY = 'integration_enabled';
+  const [enabled, setEnabled] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+  });
+  const [filter, setFilter] = useState('');
+  const [modal, setModal] = useState<string | null>(null);
+
+  function toggleEnabled(id: string) {
+    setEnabled(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
     });
-  }, []);
+  }
+
+  const categories = Array.from(new Set(INTEGRATIONS.map(i => i.category)));
+  const q = filter.toLowerCase();
+  const visible = q ? INTEGRATIONS.filter(i => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q)) : INTEGRATIONS;
+
+  const modalInteg = INTEGRATIONS.find(i => i.id === modal);
 
   return (
-    <div style={{ maxWidth: 560 }}>
-      <PageHeader title="API Keys" subtitle="Manage third-party integrations" />
-      <Card title="Anthropic Claude AI">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef3c7', display: 'grid', placeItems: 'center', fontSize: 20 }}>🤖</div>
-          <div>
-            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 14 }}>Claude AI (Haiku)</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>Powers AI Intake, Voice Negotiation, Email Parsing, Copilot</div>
-          </div>
-          <div style={{ marginLeft: 'auto' }}>
-            {status === 'checking' && <StatusBadge color="#94a3b8" label="Checking…" />}
-            {status === 'live'     && <StatusBadge color="#22c55e" label="● Connected" />}
-            {status === 'demo'     && <StatusBadge color="#f59e0b" label="⚠ Demo Mode" />}
-          </div>
-        </div>
-        <div style={{ background: '#f8fafc', borderRadius: 8, padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: '#475569', border: '1px solid #e2e8f0' }}>
-          <div style={{ marginBottom: 6, fontWeight: 700, color: '#0f172a', fontFamily: 'Inter, sans-serif' }}>backend/.env</div>
-          ANTHROPIC_API_KEY=sk-ant-api03-...
-        </div>
-        {status === 'demo' && (
-          <div style={{ marginTop: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#92400e' }}>
-            Running in demo mode. Add your Anthropic API key to the backend .env file and restart the server to enable live AI features.
-          </div>
-        )}
-      </Card>
+    <div style={{ maxWidth: 900 }}>
+      <PageHeader title="Integrations" subtitle="Connect third-party tools to NexGen TMS" />
 
-      <Card title="Load Board Integrations">
-        {[
-          { name: 'DAT Load Board',     icon: '🚛', status: 'Not configured' },
-          { name: 'Truckstop.com',       icon: '⛽', status: 'Not configured' },
-          { name: 'ITS Dispatch',        icon: '📡', status: 'Not configured' },
-        ].map(item => (
-          <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
-            <span style={{ fontSize: 18 }}>{item.icon}</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{item.name}</div>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>{item.status}</div>
+      {/* Search */}
+      <div style={{ marginBottom: 24 }}>
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Search integrations…"
+          style={{ width: '100%', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+        />
+      </div>
+
+      {/* Grid by category */}
+      {(q ? [null] : categories).map(cat => {
+        const items = q ? visible : INTEGRATIONS.filter(i => i.category === cat);
+        if (!items.length) return null;
+        return (
+          <div key={cat ?? 'all'} style={{ marginBottom: 32 }}>
+            {!q && <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>{cat}</div>}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+              {items.map(integ => {
+                const on = !!enabled[integ.id];
+                const cc = CATEGORY_COLORS[integ.category] || { bg: '#f1f5f9', text: '#475569' };
+                return (
+                  <div key={integ.id} style={{ background: '#fff', border: `1px solid ${on ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 10, boxShadow: on ? '0 0 0 1px #86efac' : 'none' }}>
+                    {/* Logo + Name */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 48, height: 48, borderRadius: 10, flexShrink: 0,
+                        background: integ.logo.bg,
+                        border: 'border' in integ.logo ? `1px solid ${(integ.logo as { border: string }).border}` : undefined,
+                        display: 'grid', placeItems: 'center',
+                        fontWeight: 800, fontSize: integ.logo.size,
+                        color: integ.logo.color,
+                        fontFamily: 'Inter, sans-serif',
+                        letterSpacing: '-0.5px',
+                      }}>
+                        {integ.logo.text}
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{integ.name}</div>
+                    </div>
+
+                    {/* Description */}
+                    <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5, flex: 1 }}>{integ.desc}</div>
+
+                    {/* Footer */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6, border: `1px solid ${cc.bg === '#fff' ? '#e2e8f0' : 'transparent'}`, background: cc.bg, color: cc.text }}>
+                        {integ.category}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {on && (
+                          <button onClick={() => setModal(integ.id)} style={{ fontSize: 12, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                            Configure
+                          </button>
+                        )}
+                        <button
+                          onClick={() => on ? toggleEnabled(integ.id) : setModal(integ.id)}
+                          style={{
+                            fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 6, cursor: 'pointer', border: 'none',
+                            background: on ? '#dcfce7' : primary,
+                            color: on ? '#16a34a' : '#fff',
+                          }}
+                        >
+                          {on ? '✓ Enabled' : 'Enable'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <button style={{ padding: '5px 12px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#475569' }}>
-              Configure
-            </button>
           </div>
-        ))}
-        <div style={{ marginTop: 12, fontSize: 12, color: '#94a3b8' }}>Load board API keys are set in backend/.env. Contact support for setup assistance.</div>
-      </Card>
+        );
+      })}
+
+      {/* Configure Modal */}
+      {modal && modalInteg && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'grid', placeItems: 'center', zIndex: 9999 }} onClick={() => setModal(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 10, background: modalInteg.logo.bg, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: modalInteg.logo.size, color: modalInteg.logo.color }}>
+                {modalInteg.logo.text}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>{modalInteg.name}</div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>{modalInteg.category}</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20, lineHeight: 1.6 }}>{modalInteg.desc}</p>
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: '#475569', border: '1px solid #e2e8f0', marginBottom: 20 }}>
+              <div style={{ marginBottom: 4, fontWeight: 700, color: '#0f172a', fontFamily: 'Inter, sans-serif', fontSize: 11 }}>Set in Render → Environment Variables</div>
+              {modalInteg.envKey}=your_key_here
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { toggleEnabled(modalInteg.id); setModal(null); }} style={{ flex: 1, padding: '10px 0', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+                {enabled[modalInteg.id] ? 'Disable' : 'Mark as Enabled'}
+              </button>
+              <button onClick={() => setModal(null)} style={{ padding: '10px 16px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
