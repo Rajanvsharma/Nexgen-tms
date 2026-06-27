@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PlusCircle, Pencil, UserX, UserCheck, Mail } from 'lucide-react';
+import { PlusCircle, Pencil, UserX, UserCheck, Mail, Trash2 } from 'lucide-react';
 import Topbar from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +36,7 @@ const EMPTY_FORM = { firstName: '', lastName: '', email: '', password: '', role:
 const EMPTY_INVITE = { firstName: '', lastName: '', email: '', role: 'DISPATCHER' };
 
 export default function UsersPage() {
-  const { isLoading } = useRequireAuth('ADMIN');
+  const { user: currentUser, isLoading } = useRequireAuth('ADMIN');
   const [users, setUsers] = useState<UserRow[]>([]);
   const [fetching, setFetching] = useState(true);
   const [open, setOpen] = useState(false);
@@ -110,6 +110,17 @@ export default function UsersPage() {
   async function toggleActive(u: UserRow) {
     await api.put(`/users/${u.id}`, { isActive: !u.isActive });
     await loadUsers();
+  }
+
+  async function deleteUser(u: UserRow) {
+    if (!confirm(`Permanently delete ${u.firstName} ${u.lastName}? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/users/${u.id}`);
+      await loadUsers();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg || 'Failed to delete user');
+    }
   }
 
   function openInvite() {
@@ -323,12 +334,17 @@ export default function UsersPage() {
                     <td className="px-4 py-3 text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(u)} className="text-gray-400 hover:text-brand transition-colors">
+                        <button onClick={() => openEdit(u)} className="text-gray-400 hover:text-blue-600 transition-colors" title="Edit">
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button onClick={() => toggleActive(u)} className="text-gray-400 hover:text-red-500 transition-colors" title={u.isActive ? 'Deactivate' : 'Activate'}>
+                        <button onClick={() => toggleActive(u)} className="text-gray-400 hover:text-yellow-600 transition-colors" title={u.isActive ? 'Deactivate' : 'Activate'}>
                           {u.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                         </button>
+                        {currentUser?.id !== u.id && (
+                          <button onClick={() => deleteUser(u)} className="text-gray-400 hover:text-red-600 transition-colors" title="Delete user permanently">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
