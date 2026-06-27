@@ -921,6 +921,87 @@ const INTEGRATIONS = [
     logo: { bg: '#064e3b', color: '#fff', text: 'DOT', size: 11 },
     envKey: 'FMCSA_API_KEY',
   },
+  {
+    id: 'borderconnect',
+    name: 'Border Connect',
+    desc: 'Make cross-border shipments easy by exporting ACI and ACE manifests to BorderConnect.',
+    category: 'Customs',
+    logo: { bg: '#0f5132', color: '#fff', text: 'B', size: 20 },
+    envKey: 'BORDERCONNECT_API_KEY',
+  },
+  {
+    id: 'geotab',
+    name: 'Geotab',
+    desc: 'Enable real-time locations for your trucks and see driver HOS data right on your manifests.',
+    category: 'Track and Trace',
+    logo: { bg: '#f8fafc', color: '#64748b', text: 'GEO', size: 11, border: '#e2e8f0' },
+    envKey: 'GEOTAB_USERNAME',
+  },
+  {
+    id: 'gmail',
+    name: 'Gmail',
+    desc: 'Send emails directly within NexGen TMS using your Gmail account.',
+    category: 'Email',
+    logo: { bg: '#fff', color: '#EA4335', text: 'M', size: 22, border: '#e2e8f0' },
+    envKey: 'GOOGLE_CLIENT_ID',
+  },
+  {
+    id: 'greenscreens',
+    name: 'Greenscreens.ai',
+    desc: 'Enable AI-powered freight rate recommendations and order quoting at the point of booking.',
+    category: 'Order Quoting',
+    logo: { bg: '#fff', color: '#1a1a1a', text: 'GS', size: 14, border: '#e2e8f0' },
+    envKey: 'GREENSCREENS_API_KEY',
+  },
+  {
+    id: 'moverssuite',
+    name: 'MoversSuite',
+    desc: 'Automatically export NexGen TMS orders into MoversSuite and keep them synchronized.',
+    category: 'Other',
+    logo: { bg: '#f8fafc', color: '#475569', text: 'MS', size: 12, border: '#e2e8f0' },
+    envKey: 'MOVERSSUITE_API_KEY',
+  },
+  {
+    id: 'rmis',
+    name: 'RMIS',
+    desc: 'Assess partner carrier risk and get the most up-to-date insurance details all in one place with RMIS.',
+    category: 'Compliance',
+    logo: { bg: '#fff', color: '#166534', text: 'RMIS', size: 10, border: '#e2e8f0' },
+    envKey: 'RMIS_API_KEY',
+  },
+  {
+    id: 'saferwatch',
+    name: 'Saferwatch',
+    desc: 'Assess partner carrier risk and get the most up-to-date insurance details all in one place with SaferWatch.',
+    category: 'Compliance',
+    logo: { bg: '#fff', color: '#dc2626', text: 'SW', size: 13, border: '#e2e8f0' },
+    envKey: 'SAFERWATCH_API_KEY',
+  },
+  {
+    id: 'samsara',
+    name: 'Samsara',
+    desc: 'Enable real-time locations for your trucks and see driver HOS data right on your manifests.',
+    category: 'Track and Trace',
+    logo: { bg: '#0d2137', color: '#fff', text: 'S', size: 20 },
+    envKey: 'SAMSARA_API_KEY',
+  },
+  {
+    id: 'spscommerce',
+    name: 'SPS Commerce',
+    desc: 'Utilize SPS Commerce to establish EDI integrations with various shippers.',
+    category: 'Other',
+    logo: { bg: '#0ea5e9', color: '#fff', text: 'SPS', size: 11 },
+    envKey: 'SPS_COMMERCE_API_KEY',
+  },
+  {
+    id: 'xero',
+    name: 'Xero',
+    desc: 'Export invoices and bills to Xero with a click of a button.',
+    category: 'Financial',
+    logo: { bg: '#13b5ea', color: '#fff', text: 'xero', size: 11 },
+    envKey: 'XERO_CLIENT_ID',
+    comingSoon: true,
+  },
 ] as const;
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -932,6 +1013,9 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   'AI':              { bg: '#fff7ed', text: '#c2410c' },
   'Telephony':       { bg: '#fff1f2', text: '#be123c' },
   'Compliance':      { bg: '#f0fdf4', text: '#166534' },
+  'Customs':         { bg: '#ecfdf5', text: '#065f46' },
+  'Order Quoting':   { bg: '#f0fdf4', text: '#15803d' },
+  'Other':           { bg: '#f8fafc', text: '#475569' },
 };
 
 function ApiTab({ primary }: { primary: string }) {
@@ -980,9 +1064,10 @@ function ApiTab({ primary }: { primary: string }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
               {items.map(integ => {
                 const on = !!enabled[integ.id];
+                const soon = 'comingSoon' in integ && (integ as { comingSoon?: boolean }).comingSoon;
                 const cc = CATEGORY_COLORS[integ.category] || { bg: '#f1f5f9', text: '#475569' };
                 return (
-                  <div key={integ.id} style={{ background: '#fff', border: `1px solid ${on ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 10, boxShadow: on ? '0 0 0 1px #86efac' : 'none' }}>
+                  <div key={integ.id} style={{ background: soon ? '#f8fafc' : '#fff', border: `1px solid ${on ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 10, boxShadow: on ? '0 0 0 1px #86efac' : 'none', opacity: soon ? 0.7 : 1 }}>
                     {/* Logo + Name */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{
@@ -997,33 +1082,39 @@ function ApiTab({ primary }: { primary: string }) {
                       }}>
                         {integ.logo.text}
                       </div>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{integ.name}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: soon ? '#94a3b8' : '#0f172a' }}>{integ.name}</div>
                     </div>
 
                     {/* Description */}
-                    <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5, flex: 1 }}>{integ.desc}</div>
+                    <div style={{ fontSize: 13, color: soon ? '#94a3b8' : '#64748b', lineHeight: 1.5, flex: 1 }}>{integ.desc}</div>
 
                     {/* Footer */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6, border: `1px solid ${cc.bg === '#fff' ? '#e2e8f0' : 'transparent'}`, background: cc.bg, color: cc.text }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6, border: '1px solid #e2e8f0', background: cc.bg, color: cc.text }}>
                         {integ.category}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {on && (
-                          <button onClick={() => setModal(integ.id)} style={{ fontSize: 12, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                            Configure
-                          </button>
+                        {soon ? (
+                          <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500 }}>Coming soon</span>
+                        ) : (
+                          <>
+                            {on && (
+                              <button onClick={() => setModal(integ.id)} style={{ fontSize: 12, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                Configure
+                              </button>
+                            )}
+                            <button
+                              onClick={() => on ? toggleEnabled(integ.id) : setModal(integ.id)}
+                              style={{
+                                fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 6, cursor: 'pointer', border: 'none',
+                                background: on ? '#dcfce7' : primary,
+                                color: on ? '#16a34a' : '#fff',
+                              }}
+                            >
+                              {on ? '✓ Enabled' : 'Enable'}
+                            </button>
+                          </>
                         )}
-                        <button
-                          onClick={() => on ? toggleEnabled(integ.id) : setModal(integ.id)}
-                          style={{
-                            fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 6, cursor: 'pointer', border: 'none',
-                            background: on ? '#dcfce7' : primary,
-                            color: on ? '#16a34a' : '#fff',
-                          }}
-                        >
-                          {on ? '✓ Enabled' : 'Enable'}
-                        </button>
                       </div>
                     </div>
                   </div>
