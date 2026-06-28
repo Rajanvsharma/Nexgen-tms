@@ -27,8 +27,8 @@ function getVisibilityFilter(user, model = 'load') {
         ],
       };
     }
-    // For Customer/Quote/etc.: no assignedTo column — scope to team or own records
-    return { organizationId, ...(teamId ? { teamId } : { createdById: user.id }) };
+    // For Customer/Quote/etc.: 'own' means only records this user created
+    return { organizationId, createdById: user.id };
   }
 
   // SUPPORT, COMPLIANCE, ACCOUNTING, AUDITOR — team-scoped
