@@ -20,9 +20,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => { loadBranding(); }, []);
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace('/login');
-    }
+    if (isLoading) return;
+    if (!user) { router.replace('/login'); return; }
+    if (user.role === 'CARRIER')  { router.replace('/carrier'); return; }
+    if (user.role === 'CUSTOMER') { router.replace('/shipper'); return; }
   }, [user, isLoading, router]);
 
   if (isLoading) {

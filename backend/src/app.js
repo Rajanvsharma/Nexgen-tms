@@ -81,6 +81,24 @@ app.use((req, _res, next) => {
 });
 
 app.use('/api/auth',         authLimiter, authRoutes);
+
+// Block portal-only roles from the main staff API surface
+app.use('/api', (req, res, next) => {
+  const portalPaths = ['/carrier-portal', '/portal', '/branding', '/tracking'];
+  const isPortalPath = portalPaths.some(p => req.path.startsWith(p));
+  if (isPortalPath) return next();
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (token) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+      if (decoded.role === 'CARRIER')  return res.status(403).json({ message: 'Carrier portal users must use /carrier-portal routes' });
+      if (decoded.role === 'CUSTOMER') return res.status(403).json({ message: 'Customer portal users must use /portal routes' });
+    } catch { /* invalid token handled by individual route guards */ }
+  }
+  next();
+});
+
 app.use('/api/users',        userRoutes);
 app.use('/api/announcements',announcementRoutes);
 app.use('/api/customers',    customerRoutes);
