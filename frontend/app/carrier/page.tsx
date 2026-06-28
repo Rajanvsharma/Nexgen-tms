@@ -31,11 +31,18 @@ function fmtMoney(n: number) { return `$${n.toLocaleString()}`; }
 export default function CarrierDashboard() {
   const { user } = useAuthStore();
   const router   = useRouter();
-  const [loads, setLoads]   = useState<Load[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loads,      setLoads]      = useState<Load[]>([]);
+  const [openCount,  setOpenCount]  = useState(0);
+  const [loading,    setLoading]    = useState(true);
 
   useEffect(() => {
-    api.get('/carrier-portal/loads').then(r => setLoads(r.data)).finally(() => setLoading(false));
+    Promise.all([
+      api.get('/carrier-portal/loads'),
+      api.get('/carrier-portal/open-loads'),
+    ]).then(([myRes, openRes]) => {
+      setLoads(myRes.data);
+      setOpenCount(openRes.data.length);
+    }).finally(() => setLoading(false));
   }, []);
 
   const active    = loads.filter(l => ['DISPATCHED','DRIVER_ON_ROUTE','IN_TRANSIT','ON_ROUTE','LOADING','UNLOADING'].includes(l.status));
@@ -44,10 +51,10 @@ export default function CarrierDashboard() {
   const totalEarned = delivered.reduce((s, l) => s + (l.carrierRate || 0), 0);
 
   const statCards = [
-    { label: 'Active Loads',    value: active.length,     color: '#3b82f6', icon: '🚛' },
-    { label: 'Pending Pickup',  value: pending.length,    color: '#f59e0b', icon: '📋' },
-    { label: 'Completed',       value: delivered.length,  color: '#22c55e', icon: '✅' },
-    { label: 'Total Earnings',  value: fmtMoney(totalEarned), color: '#8b5cf6', icon: '💰', big: true },
+    { label: 'Active Loads',     value: active.length,        color: '#3b82f6', icon: '🚛', href: '/carrier/loads' },
+    { label: 'Available Loads',  value: openCount,            color: '#f59e0b', icon: '📋', href: '/carrier/available' },
+    { label: 'Completed',        value: delivered.length,     color: '#22c55e', icon: '✅', href: '/carrier/loads' },
+    { label: 'Total Earnings',   value: fmtMoney(totalEarned),color: '#8b5cf6', icon: '💰', big: true },
   ];
 
   return (
@@ -63,7 +70,9 @@ export default function CarrierDashboard() {
         {/* Stat cards */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:16, marginBottom:28 }}>
           {statCards.map(c => (
-            <div key={c.label} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:'18px 20px', borderLeft:`4px solid ${c.color}` }}>
+            <div key={c.label} onClick={()=>c.href&&router.push(c.href)} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:'18px 20px', borderLeft:`4px solid ${c.color}`, cursor:c.href?'pointer':undefined, transition:'box-shadow 0.15s' }}
+              onMouseEnter={e=>{ if(c.href) (e.currentTarget as HTMLElement).style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'; }}
+              onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.boxShadow=''; }}>
               <div style={{ fontSize:22, marginBottom:6 }}>{c.icon}</div>
               <div style={{ fontSize: c.big ? 20 : 28, fontWeight:800, color:'#0f172a' }}>{c.value}</div>
               <div style={{ fontSize:12, color:'#64748b', fontWeight:600, marginTop:2 }}>{c.label}</div>

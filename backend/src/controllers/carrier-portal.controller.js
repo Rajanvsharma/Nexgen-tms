@@ -177,7 +177,61 @@ async function getCarrierDocuments(req, res) {
   }
 }
 
+// ── Open / Available Loads ────────────────────────────────────────────────────
+
+async function getOpenLoads(req, res) {
+  try {
+    const loads = await prisma.load.findMany({
+      where: {
+        organizationId: req.user.organizationId,
+        carrierId: null,
+        status: { in: ['CREATED', 'BOOKED', 'DRAFT'] },
+      },
+      orderBy: { pickupDate: 'asc' },
+      select: {
+        id: true, loadNumber: true, status: true,
+        pickupCity: true, pickupState: true, deliveryCity: true, deliveryState: true,
+        equipment: true, commodity: true, weight: true,
+        pickupDate: true, deliveryDate: true,
+        specialInstructions: true,
+        stops: { select: { id: true, sequence: true, type: true, city: true, state: true } },
+        createdAt: true,
+      },
+    });
+    res.json(loads);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+async function expressInterest(req, res) {
+  try {
+    const carrierId = await resolveCarrierId(req.user);
+    const carrier = carrierId ? await prisma.carrier.findUnique({ where: { id: carrierId }, select: { name: true, mcNumber: true } }) : null;
+    const carrierLabel = carrier ? `${carrier.name} (MC#${carrier.mcNumber})` : req.user.email;
+
+    const load = await prisma.load.findFirst({
+      where: { id: req.params.id, organizationId: req.user.organizationId, carrierId: null },
+      select: { id: true, loadNumber: true },
+    });
+    if (!load) return res.status(404).json({ message: 'Load not found or already assigned' });
+
+    await prisma.note.create({
+      data: {
+        loadId: load.id,
+        body: `🚛 Carrier interest: ${carrierLabel} expressed interest in this load via the carrier portal.`,
+        authorId: req.user.id,
+      },
+    });
+
+    res.json({ ok: true, message: 'Interest submitted. A dispatcher will be in touch.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
 module.exports = {
   getCarrierMe, updateCarrierMe, updateCarrierCompany, changeCarrierPassword,
   getCarrierLoads, getCarrierLoadDetail, getCarrierDocuments,
+  getOpenLoads, expressInterest,
 };

@@ -2,6 +2,7 @@ const router = require('express').Router();
 const {
   getCarrierMe, updateCarrierMe, updateCarrierCompany, changeCarrierPassword,
   getCarrierLoads, getCarrierLoadDetail, getCarrierDocuments,
+  getOpenLoads, expressInterest,
 } = require('../controllers/carrier-portal.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
 
@@ -19,5 +20,7 @@ router.put('/company',        updateCarrierCompany);
 router.get('/loads',          getCarrierLoads);
 router.get('/loads/:id',      getCarrierLoadDetail);
 router.get('/documents',      getCarrierDocuments);
+router.get('/open-loads',     getOpenLoads);
+router.post('/open-loads/:id/interest', expressInterest);
 
 module.exports = router;

@@ -13,10 +13,13 @@ const LogoutIcon = () => <svg width="16" height="16" fill="none" stroke="current
 const MenuIcon   = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
 const CloseIcon  = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 
+const BoardIcon  = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="17" width="11" height="4" rx="1"/></svg>;
+
 const NAV_MAIN = [
-  { id: 'dashboard', label: 'Dashboard',   icon: <GridIcon />,  href: '/carrier' },
-  { id: 'loads',     label: 'My Loads',    icon: <TruckIcon />, href: '/carrier/loads' },
-  { id: 'documents', label: 'Documents',   icon: <DocIcon />,   href: '/carrier/documents' },
+  { id: 'dashboard', label: 'Dashboard',       icon: <GridIcon />,  href: '/carrier' },
+  { id: 'available', label: 'Available Loads',  icon: <BoardIcon />, href: '/carrier/available' },
+  { id: 'loads',     label: 'My Loads',         icon: <TruckIcon />, href: '/carrier/loads' },
+  { id: 'documents', label: 'Documents',        icon: <DocIcon />,   href: '/carrier/documents' },
 ];
 const NAV_BOTTOM = [
   { id: 'settings', label: 'Account Settings', icon: <GearIcon />, href: '/carrier/settings' },
