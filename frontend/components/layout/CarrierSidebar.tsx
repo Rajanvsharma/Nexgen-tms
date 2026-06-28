@@ -42,14 +42,13 @@ export default function CarrierSidebar() {
   const [carrierInfo, setCarrierInfo] = useState(_cachedCarrier);
 
   useEffect(() => {
-    if (_cachedCarrier) return;
     api.get('/carrier-portal/me').then(r => {
       if (r.data.carrier) {
         _cachedCarrier = { name: r.data.carrier.name, mcNumber: r.data.carrier.mcNumber };
         setCarrierInfo(_cachedCarrier);
       }
     }).catch(() => {});
-  }, []);
+  }, [user?.id]);
 
   const primaryColor = branding.primaryColor;
   const accentColor  = branding.accentColor;

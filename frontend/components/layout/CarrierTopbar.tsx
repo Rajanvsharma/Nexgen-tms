@@ -18,14 +18,13 @@ export default function CarrierTopbar({ title, subtitle }: Props) {
   const [carrierName, setCarrierName] = useState(_cachedCarrierName);
 
   useEffect(() => {
-    if (_cachedCarrierName) return;
     api.get('/carrier-portal/me').then(r => {
       if (r.data.carrier?.name) {
         _cachedCarrierName = r.data.carrier.name;
         setCarrierName(_cachedCarrierName);
       }
     }).catch(() => {});
-  }, []);
+  }, [user?.id]);
 
   function handleLogout() { logout(); router.replace('/carrier-login'); }
 
@@ -37,7 +36,7 @@ export default function CarrierTopbar({ title, subtitle }: Props) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {carrierName && (
-          <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: primary, padding: '3px 10px', borderRadius: 9999, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             🏢 {carrierName}
           </span>
         )}
