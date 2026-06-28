@@ -1,4 +1,5 @@
 ﻿const prisma = require('../services/prisma.service');
+const XLSX = require('xlsx');
 const { getVisibilityFilter } = require('../middleware/visibility.middleware');
 
 async function nextQuoteNumber(orgId) {
@@ -48,7 +49,10 @@ async function getQuote(req, res) {
 async function createQuote(req, res) {
   try {
     const orgId = req.user.organizationId;
-    const { customerId, pickupCity, pickupState, deliveryCity, deliveryState, commodity, weight, equipment, pickupDate, deliveryDate, rate, specialInstructions, source } = req.body;
+    // CUSTOMER role: auto-use their own customerId from JWT
+    const resolvedCustomerId = req.user.role === 'CUSTOMER' ? req.user.customerId : req.body.customerId;
+    const { pickupCity, pickupState, deliveryCity, deliveryState, commodity, weight, equipment, pickupDate, deliveryDate, rate, specialInstructions, source } = req.body;
+    const customerId = resolvedCustomerId;
     if (!customerId || !pickupCity || !pickupState || !deliveryCity || !deliveryState || !equipment || !rate) {
       return res.status(400).json({ message: 'customerId, pickup/delivery cities & states, equipment, and rate are required' });
     }
@@ -190,4 +194,66 @@ async function deleteQuote(req, res) {
   }
 }
 
-module.exports = { getQuotes, getQuote, createQuote, updateQuote, updateQuoteStatus, deleteQuote, convertToLoad };
+async function uploadQuotes(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    const orgId = req.user.organizationId;
+    const customerId = req.user.role === 'CUSTOMER' ? req.user.customerId : req.body.customerId;
+    if (!customerId) return res.status(400).json({ message: 'customerId is required' });
+
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+    if (!rows.length) return res.status(400).json({ message: 'Excel file is empty' });
+
+    const created = [];
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const pickupCity    = String(row['Pickup City']    || row['pickup_city']    || '').trim();
+      const pickupState   = String(row['Pickup State']   || row['pickup_state']   || '').trim();
+      const deliveryCity  = String(row['Delivery City']  || row['delivery_city']  || '').trim();
+      const deliveryState = String(row['Delivery State'] || row['delivery_state'] || '').trim();
+      const equipment     = String(row['Equipment']      || row['equipment']      || '').trim();
+      const rate          = parseFloat(row['Rate'] || row['rate'] || 0);
+
+      if (!pickupCity || !pickupState || !deliveryCity || !deliveryState || !equipment || !rate) {
+        errors.push({ row: i + 2, reason: 'Missing required fields (Pickup City, Pickup State, Delivery City, Delivery State, Equipment, Rate)' });
+        continue;
+      }
+
+      const commodity     = String(row['Commodity']     || row['commodity']     || '').trim() || null;
+      const weight        = parseFloat(row['Weight'] || row['weight'] || 0) || null;
+      const specialInstructions = String(row['Special Instructions'] || row['special_instructions'] || '').trim() || null;
+
+      let pickupDate  = null;
+      let deliveryDate = null;
+      const pd = row['Pickup Date'] || row['pickup_date'];
+      const dd = row['Delivery Date'] || row['delivery_date'];
+      if (pd) try { pickupDate  = new Date(pd); } catch {}
+      if (dd) try { deliveryDate = new Date(dd); } catch {}
+
+      const quoteNumber = await nextQuoteNumber(orgId);
+      const q = await prisma.quote.create({
+        data: {
+          organizationId: orgId, quoteNumber, customerId,
+          teamId: req.user.teamId || null,
+          createdById: req.user.id,
+          pickupCity, pickupState, deliveryCity, deliveryState,
+          equipment, commodity, weight, rate, specialInstructions,
+          pickupDate, deliveryDate, source: 'excel-upload',
+        },
+      });
+      created.push(q.quoteNumber);
+    }
+
+    res.status(201).json({ created: created.length, errors, quoteNumbers: created });
+  } catch (err) {
+    console.error('uploadQuotes error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getQuotes, getQuote, createQuote, updateQuote, updateQuoteStatus, deleteQuote, convertToLoad, uploadQuotes };
