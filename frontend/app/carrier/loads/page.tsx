@@ -53,9 +53,17 @@ export default function CarrierLoadsPage() {
   const [search,  setSearch]  = useState('');
   const [group,   setGroup]   = useState('All');
   const [newBidToast, setNewBidToast] = useState<string|null>(null);
+  const [accountError, setAccountError] = useState(false);
 
   const fetchLoads = useCallback(() => {
-    api.get('/carrier-portal/loads').then(r=>setLoads(r.data)).finally(()=>setLoading(false));
+    setLoading(true);
+    api.get('/carrier-portal/loads')
+      .then(r => { setLoads(r.data); setAccountError(false); })
+      .catch((e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        if (status === 403) setAccountError(true);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { fetchLoads(); }, [fetchLoads]);
@@ -118,13 +126,37 @@ export default function CarrierLoadsPage() {
 
         {loading ? (
           <div style={{ display:'grid', placeItems:'center', height:200, color:'#94a3b8' }}>Loading…</div>
+        ) : accountError ? (
+          <div style={{ background:'#fff', border:'1px solid #fca5a5', borderRadius:14, padding:'40px 32px', textAlign:'center' }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>⚠️</div>
+            <div style={{ fontSize:16, fontWeight:700, color:'#dc2626', marginBottom:8 }}>Carrier account not linked</div>
+            <div style={{ color:'#64748b', fontSize:13, maxWidth:420, margin:'0 auto 20px' }}>
+              Your user account is not connected to a carrier profile. Contact your dispatcher to send you a carrier portal invite from the TMS.
+            </div>
+          </div>
         ) : visible.length === 0 ? (
           <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:'56px 24px', textAlign:'center' }}>
             <div style={{ fontSize:48, marginBottom:14 }}>🚛</div>
-            <div style={{ fontSize:17, fontWeight:700, color:'#0f172a', marginBottom:8 }}>No loads found</div>
-            <div style={{ color:'#64748b', fontSize:13 }}>
-              {loads.length===0 ? 'Loads assigned to your carrier will appear here.' : 'Try clearing your filters.'}
+            <div style={{ fontSize:17, fontWeight:700, color:'#0f172a', marginBottom:8 }}>
+              {loads.length === 0 ? 'No loads assigned yet' : 'No loads found'}
             </div>
+            <div style={{ color:'#64748b', fontSize:13, maxWidth:400, margin:'0 auto' }}>
+              {loads.length === 0
+                ? 'Loads appear here when your dispatcher assigns a shipment to your carrier, or when they accept one of your rate bids.'
+                : 'Try clearing your search or changing the status filter.'}
+            </div>
+            {loads.length === 0 && (
+              <div style={{ marginTop:20, display:'flex', gap:10, justifyContent:'center' }}>
+                <button onClick={()=>router.push('/carrier/available')}
+                  style={{ padding:'9px 20px', background:'#f59e0b', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                  Browse Available Loads
+                </button>
+                <button onClick={fetchLoads}
+                  style={{ padding:'9px 20px', background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  ↻ Refresh
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, overflow:'hidden' }}>
