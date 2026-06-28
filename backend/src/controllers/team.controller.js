@@ -85,9 +85,35 @@ async function updateTeam(req, res) {
     const data = {};
     if (name !== undefined) data.name = name;
     if (isActive !== undefined) data.isActive = isActive;
+
+    const managerChanging = managerId !== undefined && managerId !== team.managerId;
+
     if (managerId !== undefined) data.managerId = managerId || null;
 
-    const updated = await prisma.team.update({ where: { id }, data, select: TEAM_SELECT });
+    // Run team update + manager role/team changes atomically
+    const [updated] = await prisma.$transaction(async (tx) => {
+      const result = await tx.team.update({ where: { id }, data, select: TEAM_SELECT });
+
+      if (managerChanging) {
+        // Reset old manager's role and teamId
+        if (team.managerId) {
+          await tx.user.update({
+            where: { id: team.managerId },
+            data: { role: 'DISPATCHER', teamId: null },
+          });
+        }
+        // Promote new manager
+        if (managerId) {
+          await tx.user.update({
+            where: { id: managerId },
+            data: { role: 'TEAM_MANAGER', teamId: id },
+          });
+        }
+      }
+
+      return [result];
+    });
+
     res.json(updated);
   } catch (err) {
     console.error('updateTeam error:', err);
