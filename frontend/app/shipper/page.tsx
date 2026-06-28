@@ -123,7 +123,10 @@ export default function ShipperDashboard() {
                       <div style={{ fontSize:12, fontWeight:700, color:'#1d4ed8', fontFamily:'monospace' }}>{l.loadNumber}</div>
                       <div style={{ fontSize:11, color:'#475569', marginTop:1 }}>{l.pickupCity} → {l.deliveryCity} · {l.equipment}</div>
                     </div>
-                    <Badge status={l.status} colors={LCOLOR} />
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <Badge status={l.status} colors={LCOLOR} />
+                      <button onClick={()=>router.push(`/shipper/track/${l.id}`)} style={{ padding:'3px 10px', background:'#0f172a', color:'#fff', border:'none', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer' }}>📍 Track</button>
+                    </div>
                   </div>
                 ))}
                 {loads.length > 5 && (

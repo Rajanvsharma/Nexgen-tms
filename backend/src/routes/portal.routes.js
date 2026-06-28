@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getMyQuotes, getMyLoads, createQuote, parseEmail, parseExcel, getPortalMe, updatePortalMe, changePortalPassword, getMyInvoices, getMyDocuments } = require('../controllers/portal.controller');
+const { getMyQuotes, getMyLoads, getMyLoadDetail, createQuote, parseEmail, parseExcel, getPortalMe, updatePortalMe, changePortalPassword, getMyInvoices, getMyDocuments } = require('../controllers/portal.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
 
 function requireCustomer(req, res, next) {
@@ -14,6 +14,7 @@ router.put('/me', updatePortalMe);
 router.put('/me/password', changePortalPassword);
 router.get('/quotes', getMyQuotes);
 router.get('/loads', getMyLoads);
+router.get('/loads/:id', getMyLoadDetail);
 router.post('/quotes', createQuote);
 router.post('/quotes/parse-email', parseEmail);
 router.post('/quotes/parse-excel', parseExcel);

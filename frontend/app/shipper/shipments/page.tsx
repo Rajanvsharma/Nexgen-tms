@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ShipperTopbar from '@/components/layout/ShipperTopbar';
 import api from '@/lib/api';
 
@@ -20,6 +21,7 @@ const STATUSES = ['All','CREATED','DISPATCHED','IN_TRANSIT','DELIVERED','INVOICE
 function fmtDate(d: string | null) { return d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'; }
 
 export default function ShipmentsPage() {
+  const router = useRouter();
   const [loads, setLoads]     = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState('All');
@@ -69,7 +71,7 @@ export default function ShipmentsPage() {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
             <thead>
               <tr style={{ background:'#f8fafc' }}>
-                {['Load #','Route','Equipment','Carrier','Pickup','Status','Rate'].map(h=>(
+                {['Load #','Route','Equipment','Carrier','Pickup','Status','Rate',''].map(h=>(
                   <th key={h} style={{ padding:'10px 16px', textAlign:'left', color:'#64748b', fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</th>
                 ))}
               </tr>
@@ -88,6 +90,11 @@ export default function ShipmentsPage() {
                       <td style={{ padding:'12px 16px', color:'#475569' }}>{fmtDate(l.pickupDate)}</td>
                       <td style={{ padding:'12px 16px' }}><span style={{ padding:'2px 9px', borderRadius:9999, fontSize:11, fontWeight:700, background:`${c}22`, color:c }}>{l.status.replace('_',' ')}</span></td>
                       <td style={{ padding:'12px 16px', fontWeight:600, color:'#0f172a' }}>{l.customerRate > 0 ? `$${l.customerRate.toLocaleString()}` : '—'}</td>
+                      <td style={{ padding:'12px 16px' }}>
+                        <button onClick={e=>{e.stopPropagation();router.push(`/shipper/track/${l.id}`);}} style={{ padding:'5px 12px', background:'#0f172a', color:'#fff', border:'none', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                          📍 Track
+                        </button>
+                      </td>
                     </tr>
                     {isOpen && (
                       <tr key={`${l.id}-detail`} style={{ background:'#f8fafc', borderTop:'1px solid #e2e8f0' }}>

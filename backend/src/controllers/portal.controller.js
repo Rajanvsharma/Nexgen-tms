@@ -273,6 +273,38 @@ async function changePortalPassword(req, res) {
   }
 }
 
+async function getMyLoadDetail(req, res) {
+  try {
+    const customerId = await resolveCustomerId(req.user);
+    if (!customerId) return res.status(403).json({ message: 'No customer account linked' });
+
+    const load = await prisma.load.findFirst({
+      where: { id: req.params.id, customerId },
+      select: {
+        id: true, loadNumber: true, status: true,
+        pickupCity: true, pickupState: true, deliveryCity: true, deliveryState: true,
+        equipment: true, commodity: true, weight: true, specialInstructions: true,
+        pickupDate: true, deliveryDate: true, customerRate: true,
+        driverName: true, driverPhone: true,
+        trackingLat: true, trackingLng: true, trackingUpdatedAt: true, trackingHistory: true,
+        carrier: { select: { name: true, phone: true, mcNumber: true } },
+        stops: { orderBy: { sequence: 'asc' } },
+        auditLog: {
+          orderBy: { changedAt: 'asc' },
+          select: { action: true, fromValue: true, toValue: true, changedAt: true },
+          where: { action: 'status_changed' },
+        },
+        pods: { select: { id: true, filename: true, fileUrl: true, podType: true, createdAt: true } },
+        createdAt: true, updatedAt: true,
+      },
+    });
+    if (!load) return res.status(404).json({ message: 'Load not found' });
+    res.json(load);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
 async function getMyInvoices(req, res) {
   try {
     const customerId = await resolveCustomerId(req.user);
@@ -313,4 +345,4 @@ async function getMyDocuments(req, res) {
   }
 }
 
-module.exports = { getMyQuotes, getMyLoads, createQuote, parseEmail, parseExcel, getPortalMe, updatePortalMe, changePortalPassword, getMyInvoices, getMyDocuments };
+module.exports = { getMyQuotes, getMyLoads, getMyLoadDetail, createQuote, parseEmail, parseExcel, getPortalMe, updatePortalMe, changePortalPassword, getMyInvoices, getMyDocuments };
