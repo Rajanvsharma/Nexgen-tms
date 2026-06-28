@@ -24,7 +24,7 @@ export default function ShipperLayout({ children }: { children: React.ReactNode 
     }).catch(() => { router.replace('/shipper-login'); });
   }, []);
 
-  if (isLoading || !user) {
+  if (isLoading || !user || user.role !== 'CUSTOMER') {
     return (
       <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Loading…</div>

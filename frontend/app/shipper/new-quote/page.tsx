@@ -110,7 +110,7 @@ export default function NewQuotePage() {
     if (!f.pickupCity || !f.deliveryCity || !f.equipment) {
       setError('Pickup city, delivery city, and equipment are required'); return false;
     }
-    await api.post('/portal/quotes', { ...f, weight: f.weight || undefined, rate: f.rate || undefined, source: src });
+    await api.post('/quotes', { ...f, weight: f.weight || undefined, rate: f.rate || undefined, source: src });
     return true;
   }
 
