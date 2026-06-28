@@ -33,7 +33,12 @@ export default function CarrierSettingsPage() {
   const { user } = useAuthStore();
   const [portalUser,  setPortalUser]  = useState<PortalUser|null>(null);
   const [carrier,     setCarrier]     = useState<PortalCarrier|null>(null);
-  const [profileForm, setProfileForm] = useState({ firstName:'', lastName:'', phone:'' });
+  // Pre-fill from auth store immediately so fields are never blank on load
+  const [profileForm, setProfileForm] = useState({
+    firstName: user?.firstName ?? '',
+    lastName:  user?.lastName  ?? '',
+    phone:     '',
+  });
   const [companyForm, setCompanyForm] = useState({ phone:'', email:'', address:'', city:'', state:'', zipCode:'', contactPerson:'', dotNumber:'', equipmentTypes:[] as string[] });
   const [pwForm,      setPwForm]      = useState({ currentPassword:'', newPassword:'', confirmPassword:'' });
   const [saving,      setSaving]      = useState(false);
@@ -44,15 +49,23 @@ export default function CarrierSettingsPage() {
   const [pwMsg,       setPwMsg]       = useState<Msg|null>(null);
 
   useEffect(() => {
-    api.get('/carrier-portal/me').then(r => {
-      setPortalUser(r.data.user);
-      setCarrier(r.data.carrier);
-      setProfileForm({ firstName:r.data.user?.firstName??'', lastName:r.data.user?.lastName??'', phone:r.data.user?.phone??'' });
-      if (r.data.carrier) {
-        const c = r.data.carrier;
-        setCompanyForm({ phone:c.phone??'', email:c.email??'', address:c.address??'', city:c.city??'', state:c.state??'', zipCode:c.zipCode??'', contactPerson:c.contactPerson??'', dotNumber:c.dotNumber??'', equipmentTypes:c.equipmentTypes??[] });
-      }
-    });
+    api.get('/carrier-portal/me')
+      .then(r => {
+        setPortalUser(r.data.user);
+        setCarrier(r.data.carrier);
+        setProfileForm({
+          firstName: r.data.user?.firstName ?? user?.firstName ?? '',
+          lastName:  r.data.user?.lastName  ?? user?.lastName  ?? '',
+          phone:     r.data.user?.phone     ?? '',
+        });
+        if (r.data.carrier) {
+          const c = r.data.carrier;
+          setCompanyForm({ phone:c.phone??'', email:c.email??'', address:c.address??'', city:c.city??'', state:c.state??'', zipCode:c.zipCode??'', contactPerson:c.contactPerson??'', dotNumber:c.dotNumber??'', equipmentTypes:c.equipmentTypes??[] });
+        }
+      })
+      .catch(() => {
+        // API failed — keep the auth-store values already in profileForm
+      });
   }, []);
 
   async function saveProfile() {
@@ -121,7 +134,7 @@ export default function CarrierSettingsPage() {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
             <Field label="First Name"><input style={inp} value={profileForm.firstName} onChange={e=>setProfileForm(f=>({...f,firstName:e.target.value}))} /></Field>
             <Field label="Last Name"><input style={inp} value={profileForm.lastName} onChange={e=>setProfileForm(f=>({...f,lastName:e.target.value}))} /></Field>
-            <Field label="Email"><input style={readonlyInp} readOnly value={portalUser?.email??''} /></Field>
+            <Field label="Email"><input style={readonlyInp} readOnly value={portalUser?.email ?? user?.email ?? ''} /></Field>
             <Field label="Phone"><input style={inp} value={profileForm.phone} onChange={e=>setProfileForm(f=>({...f,phone:e.target.value}))} placeholder="(555) 000-0000" /></Field>
           </div>
           <Alert m={msg} />
