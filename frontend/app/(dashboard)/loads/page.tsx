@@ -177,9 +177,9 @@ export default function LoadsPage() {
       }
       const [lRes, cRes, carRes, uRes] = await Promise.all([
         api.get('/loads', { params }),
-        api.get('/customers'),
-        api.get('/carriers'),
-        isManager ? api.get('/users') : Promise.resolve({ data: [] }),
+        api.get('/customers').catch(() => ({ data: [] })),
+        api.get('/carriers').catch(() => ({ data: [] })),
+        isManager ? api.get('/users').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
       ]);
       setLoads(lRes.data.loads ?? lRes.data);
       setCustomers(cRes.data);

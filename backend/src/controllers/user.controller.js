@@ -13,8 +13,12 @@ const SAFE_SELECT = {
 
 async function getUsers(req, res) {
   try {
+    const { role, organizationId, teamId } = req.user;
+    const where = { organizationId };
+    // TEAM_MANAGER sees only their team members
+    if (role === 'TEAM_MANAGER' && teamId) where.teamId = teamId;
     const users = await prisma.user.findMany({
-      where: { organizationId: req.user.organizationId },
+      where,
       select: SAFE_SELECT,
       orderBy: { createdAt: 'desc' },
     });
