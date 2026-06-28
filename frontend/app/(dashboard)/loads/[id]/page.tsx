@@ -88,6 +88,9 @@ export default function LoadDetailPage() {
   const [stopsSaving,  setStopsSaving]  = useState(false);
   const [stopsMode,    setStopsMode]    = useState(false);
 
+  // GPS link copy state
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const fetchLoad = useCallback(async () => {
     try {
       const res = await api.get(`/loads/${id}`);
@@ -262,6 +265,46 @@ export default function LoadDetailPage() {
             </div>
           ))}
         </div>
+
+        {/* ── GPS Tracking ── */}
+        {(() => {
+          const trackingUrl = typeof window !== 'undefined'
+            ? `${window.location.origin}/driver-track/${load.id}`
+            : `/driver-track/${load.id}`;
+          const copyLink = () => {
+            navigator.clipboard.writeText(trackingUrl);
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 2000);
+          };
+          return (
+            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:'18px 22px', marginBottom:20 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:14, color:'#0f172a', marginBottom:3 }}>📍 Live GPS Tracking</div>
+                  <div style={{ fontSize:12, color:'#64748b' }}>Send this link to the driver — they open it on their phone and their location updates every 30 seconds.</div>
+                </div>
+                <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                  <code style={{ background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, padding:'6px 10px', fontSize:11, color:'#475569', maxWidth:300, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>
+                    {trackingUrl}
+                  </code>
+                  <button onClick={copyLink} style={{ padding:'7px 16px', background: linkCopied ? '#22c55e' : '#0f172a', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', transition:'background 0.2s' }}>
+                    {linkCopied ? '✓ Copied!' : '📋 Copy Link'}
+                  </button>
+                  <a href={`https://wa.me/?text=${encodeURIComponent('Open this link to share your live location: ' + trackingUrl)}`} target="_blank" rel="noreferrer"
+                    style={{ padding:'7px 14px', background:'#25D366', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:700, cursor:'pointer', textDecoration:'none', whiteSpace:'nowrap' }}>
+                    WhatsApp
+                  </a>
+                </div>
+              </div>
+              {load.driverName && (
+                <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #f1f5f9', fontSize:12, color:'#64748b' }}>
+                  Driver: <strong style={{ color:'#0f172a' }}>{load.driverName}</strong>
+                  {load.driverPhone && <>&nbsp;·&nbsp;<a href={`sms:${load.driverPhone}?&body=${encodeURIComponent('Open this link to share your live location: ' + trackingUrl)}`} style={{ color:'#3b82f6', textDecoration:'none' }}>Send via SMS</a></>}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Tabs ── */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>

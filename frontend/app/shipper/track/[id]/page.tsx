@@ -69,6 +69,14 @@ export default function TrackingPage() {
       .then(r => setLoad(r.data))
       .catch(() => setError('Load not found or access denied.'))
       .finally(() => setLoading(false));
+
+    // Poll every 30s so the GPS map updates without page reload
+    const timer = setInterval(() => {
+      api.get(`/portal/loads/${id}`)
+        .then(r => setLoad(r.data))
+        .catch(() => {});
+    }, 30_000);
+    return () => clearInterval(timer);
   }, [id]);
 
   if (loading) return (
