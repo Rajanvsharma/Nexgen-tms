@@ -52,18 +52,25 @@ export default function CarrierLoadsPage() {
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState('');
   const [group,   setGroup]   = useState('All');
-  const [newBidToast, setNewBidToast] = useState<string|null>(null);
+  const [newBidToast, setNewBidToast]   = useState<string|null>(null);
   const [accountError, setAccountError] = useState(false);
+  const [brokenLink,   setBrokenLink]   = useState(false);
 
   const fetchLoads = useCallback(() => {
     setLoading(true);
-    api.get('/carrier-portal/loads')
-      .then(r => { setLoads(r.data); setAccountError(false); })
-      .catch((e: unknown) => {
+    Promise.all([
+      api.get('/carrier-portal/loads').catch((e: unknown) => {
         const status = (e as { response?: { status?: number } })?.response?.status;
         if (status === 403) setAccountError(true);
-      })
-      .finally(() => setLoading(false));
+        return null;
+      }),
+      api.get('/carrier-portal/me').catch(() => null),
+    ]).then(([loadsRes, meRes]) => {
+      if (loadsRes) setLoads(loadsRes.data);
+      // Loads returned OK but carrier record is missing → broken carrierId reference
+      if (loadsRes && meRes && !meRes.data.carrier) setBrokenLink(true);
+      else setBrokenLink(false);
+    }).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { fetchLoads(); }, [fetchLoads]);
@@ -126,6 +133,19 @@ export default function CarrierLoadsPage() {
 
         {loading ? (
           <div style={{ display:'grid', placeItems:'center', height:200, color:'#94a3b8' }}>Loading…</div>
+        ) : brokenLink ? (
+          <div style={{ background:'#fff', border:'1px solid #fca5a5', borderRadius:14, padding:'40px 32px', textAlign:'center' }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>🔗</div>
+            <div style={{ fontSize:16, fontWeight:700, color:'#dc2626', marginBottom:8 }}>Carrier account not properly linked</div>
+            <div style={{ color:'#64748b', fontSize:13, maxWidth:480, margin:'0 auto 20px', lineHeight:1.6 }}>
+              Your account is connected to a carrier that no longer exists in the system.<br />
+              Ask your dispatcher to re-send you a carrier portal invite from the <strong>Carriers</strong> page in the TMS.<br />
+              Once re-invited, log out and log back in with the link in the email.
+            </div>
+            <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'12px 20px', display:'inline-block', fontSize:12, color:'#b91c1c', fontWeight:600 }}>
+              Dispatcher: go to Carriers → find the company → click ✉️ Invite → enter this user's email
+            </div>
+          </div>
         ) : accountError ? (
           <div style={{ background:'#fff', border:'1px solid #fca5a5', borderRadius:14, padding:'40px 32px', textAlign:'center' }}>
             <div style={{ fontSize:40, marginBottom:12 }}>⚠️</div>
