@@ -7,7 +7,7 @@ const { sendCarrierStatusUpdateEmail, sendPODUploadedEmail, sendNewBidEmail } = 
 const { emitToOrg } = require('../services/socket.service');
 
 async function resolveCarrierId(user) {
-  if (user.carrierId) return user.carrierId;
+  // Always read from DB — JWT carrierId can be stale if user was re-linked after login
   const u = await prisma.user.findUnique({ where: { id: user.id }, select: { carrierId: true } });
   return u?.carrierId ?? null;
 }
