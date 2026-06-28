@@ -112,6 +112,78 @@ async function deleteCustomer(req, res) {
   }
 }
 
+async function inviteNewShipper(req, res) {
+  try {
+    const orgId = req.user.organizationId;
+    const {
+      companyName, companyEmail, companyPhone, companyAddress,
+      companyCity, companyState, companyZip,
+      contactFirstName, contactLastName, contactEmail,
+    } = req.body;
+
+    if (!companyName) return res.status(400).json({ message: 'Company name is required' });
+    if (!contactEmail || !contactFirstName) return res.status(400).json({ message: 'Contact first name and email are required' });
+
+    const emailInUse = await prisma.user.findUnique({ where: { email: contactEmail } });
+    if (emailInUse) return res.status(409).json({ message: 'An account with this email already exists' });
+
+    // Create customer + portal user in one transaction
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
+    const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+
+    const { customer, portalUser } = await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.create({
+        data: {
+          organizationId: orgId,
+          name: companyName,
+          email: companyEmail || null,
+          phone: companyPhone || null,
+          address: companyAddress || null,
+          city: companyCity || null,
+          state: companyState || null,
+          zipCode: companyZip || null,
+          createdById: req.user.id,
+          teamId: req.user.teamId || null,
+        },
+      });
+      const portalUser = await tx.user.create({
+        data: {
+          organizationId: orgId,
+          email: contactEmail,
+          password: randomPw,
+          firstName: contactFirstName,
+          lastName: contactLastName || '',
+          role: 'CUSTOMER',
+          isActive: true,
+          customerId: customer.id,
+          resetToken: hashedToken,
+          resetTokenExpiry: expiry,
+        },
+      });
+      return { customer, portalUser };
+    });
+
+    const inviteUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
+    const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true, email: true } });
+    const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : 'NexGen TMS';
+
+    await sendShipperInviteEmail({ toEmail: contactEmail, firstName: contactFirstName, companyName, inviteUrl, invitedBy });
+
+    res.status(201).json({
+      customerId: customer.id,
+      portalUserId: portalUser.id,
+      inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
+      emailSent: !!process.env.RESEND_API_KEY,
+      customerName: companyName,
+    });
+  } catch (err) {
+    console.error('inviteNewShipper error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
 async function inviteShipper(req, res) {
   try {
     const orgId = req.user.organizationId;
@@ -163,4 +235,4 @@ async function inviteShipper(req, res) {
   }
 }
 
-module.exports = { getCustomers, getCustomer, createCustomer, updateCustomer, deleteCustomer, inviteShipper };
+module.exports = { getCustomers, getCustomer, createCustomer, updateCustomer, deleteCustomer, inviteShipper, inviteNewShipper };

@@ -40,6 +40,14 @@ export default function CustomersPage() {
   const [inviteResult, setInviteResult] = useState<{ emailSent: boolean; inviteUrl: string | null } | null>(null);
   const [inviteError, setInviteError] = useState('');
 
+  // Quick invite (top-level — creates customer + sends invite in one step)
+  const EMPTY_QUICK = { companyName:'', companyEmail:'', companyPhone:'', companyAddress:'', companyCity:'', companyState:'', companyZip:'', contactFirstName:'', contactLastName:'', contactEmail:'' };
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickForm, setQuickForm] = useState({ ...EMPTY_QUICK });
+  const [quickInviting, setQuickInviting] = useState(false);
+  const [quickResult, setQuickResult] = useState<{ emailSent: boolean; inviteUrl: string | null; customerName: string } | null>(null);
+  const [quickError, setQuickError] = useState('');
+
   const loadData = useCallback(async () => {
     try {
       const { data } = await api.get('/customers');
@@ -84,6 +92,32 @@ export default function CustomersPage() {
       setCustomers(cs => cs.map(x => x.id === c.id ? { ...x, isActive: !c.isActive } : x));
       toast.success(c.isActive ? 'Customer deactivated' : 'Customer reactivated', c.name);
     } catch { toast.error('Failed to update status'); }
+  }
+
+  async function handleQuickInvite() {
+    setQuickError('');
+    if (!quickForm.companyName.trim()) { setQuickError('Company name is required'); return; }
+    if (!quickForm.contactFirstName.trim() || !quickForm.contactEmail.trim()) { setQuickError('Contact first name and email are required'); return; }
+    setQuickInviting(true);
+    try {
+      const { data } = await api.post('/customers/invite-new', {
+        companyName: quickForm.companyName.trim(),
+        companyEmail: quickForm.companyEmail.trim() || undefined,
+        companyPhone: quickForm.companyPhone.trim() || undefined,
+        companyAddress: quickForm.companyAddress.trim() || undefined,
+        companyCity: quickForm.companyCity.trim() || undefined,
+        companyState: quickForm.companyState.trim() || undefined,
+        companyZip: quickForm.companyZip.trim() || undefined,
+        contactFirstName: quickForm.contactFirstName.trim(),
+        contactLastName: quickForm.contactLastName.trim() || undefined,
+        contactEmail: quickForm.contactEmail.trim(),
+      });
+      setQuickResult(data);
+      loadData();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setQuickError(msg || 'Failed to send invite');
+    } finally { setQuickInviting(false); }
   }
 
   async function handleShipperInvite() {
@@ -142,6 +176,10 @@ export default function CustomersPage() {
           </label>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers…"
             style={{ padding: '8px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, width: 220, outline: 'none' }} />
+          <button onClick={() => { setQuickOpen(true); setQuickForm({ ...EMPTY_QUICK }); setQuickResult(null); setQuickError(''); }}
+            style={{ padding: '9px 18px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            ✉ Invite Shipper
+          </button>
           <button onClick={openCreate} style={{ padding: '9px 18px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             + Add Customer
           </button>
@@ -307,6 +345,110 @@ export default function CustomersPage() {
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
         />
+      )}
+
+      {/* ── Quick Invite Shipper Modal (top-level: creates customer + sends invite) ── */}
+      {quickOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+            <div style={{ padding: '22px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0f172a' }}>✉ Invite a Shipper</h2>
+                <p style={{ margin: '3px 0 0', fontSize: 13, color: '#64748b' }}>Creates a customer account and sends a portal invite in one step</p>
+              </div>
+              <button onClick={() => setQuickOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8', padding: 4 }}>✕</button>
+            </div>
+
+            {quickResult ? (
+              <div style={{ padding: 28 }}>
+                <div style={{ padding: '16px 20px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, marginBottom: 20 }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#15803d' }}>✓ {quickResult.customerName} has been added</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#16a34a' }}>
+                    {quickResult.emailSent ? 'Invite email sent successfully.' : 'Account created — share the invite link below (no SMTP configured):'}
+                  </p>
+                </div>
+                {quickResult.inviteUrl && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase' }}>Invite Link</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input readOnly value={quickResult.inviteUrl} style={{ flex: 1, padding: '9px 12px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 11, fontFamily: 'monospace', background: '#f8fafc', color: '#334155' }} />
+                      <button onClick={() => navigator.clipboard.writeText(quickResult!.inviteUrl!)} style={{ padding: '9px 14px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Copy</button>
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={() => { setQuickResult(null); setQuickForm({ ...EMPTY_QUICK }); }} style={{ padding: '10px 20px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#475569' }}>Invite Another</button>
+                  <button onClick={() => { setQuickOpen(false); setQuickResult(null); }} style={{ padding: '10px 22px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Done</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                {/* Company section */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0ea5e9', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Company Details</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <SF label="Company Name *">
+                        <input value={quickForm.companyName} onChange={e => setQuickForm(f => ({ ...f, companyName: e.target.value }))} style={CI} placeholder="ABC Freight Co." />
+                      </SF>
+                    </div>
+                    <SF label="Company Email">
+                      <input type="email" value={quickForm.companyEmail} onChange={e => setQuickForm(f => ({ ...f, companyEmail: e.target.value }))} style={CI} placeholder="info@abcfreight.com" />
+                    </SF>
+                    <SF label="Phone">
+                      <input value={quickForm.companyPhone} onChange={e => setQuickForm(f => ({ ...f, companyPhone: e.target.value }))} style={CI} placeholder="(555) 000-0000" />
+                    </SF>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <SF label="Address">
+                        <input value={quickForm.companyAddress} onChange={e => setQuickForm(f => ({ ...f, companyAddress: e.target.value }))} style={CI} placeholder="123 Main St" />
+                      </SF>
+                    </div>
+                    <SF label="City">
+                      <input value={quickForm.companyCity} onChange={e => setQuickForm(f => ({ ...f, companyCity: e.target.value }))} style={CI} placeholder="Chicago" />
+                    </SF>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <SF label="State">
+                        <input value={quickForm.companyState} onChange={e => setQuickForm(f => ({ ...f, companyState: e.target.value }))} style={CI} placeholder="IL" maxLength={2} />
+                      </SF>
+                      <SF label="Zip Code">
+                        <input value={quickForm.companyZip} onChange={e => setQuickForm(f => ({ ...f, companyZip: e.target.value }))} style={CI} placeholder="60601" />
+                      </SF>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact section */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Portal Contact (who receives the invite)</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <SF label="First Name *">
+                      <input value={quickForm.contactFirstName} onChange={e => setQuickForm(f => ({ ...f, contactFirstName: e.target.value }))} style={CI} placeholder="Jane" />
+                    </SF>
+                    <SF label="Last Name">
+                      <input value={quickForm.contactLastName} onChange={e => setQuickForm(f => ({ ...f, contactLastName: e.target.value }))} style={CI} placeholder="Smith" />
+                    </SF>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <SF label="Login Email *">
+                        <input type="email" value={quickForm.contactEmail} onChange={e => setQuickForm(f => ({ ...f, contactEmail: e.target.value }))} style={CI} placeholder="jane@abcfreight.com" />
+                      </SF>
+                      <p style={{ margin: '5px 0 0', fontSize: 11, color: '#94a3b8' }}>They'll receive a link to set their password and access the shipper portal.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {quickError && <div style={{ padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 13, color: '#dc2626' }}>{quickError}</div>}
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+                  <button onClick={() => setQuickOpen(false)} style={{ padding: '10px 20px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#475569' }}>Cancel</button>
+                  <button onClick={handleQuickInvite} disabled={quickInviting} style={{ padding: '10px 24px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: quickInviting ? 'not-allowed' : 'pointer', opacity: quickInviting ? 0.7 : 1 }}>
+                    {quickInviting ? 'Creating & Sending…' : '✉ Create & Send Invite'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Shipper Invite Modal */}
