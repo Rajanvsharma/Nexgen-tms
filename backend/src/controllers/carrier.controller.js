@@ -137,36 +137,55 @@ async function inviteCarrier(req, res) {
     if (!carrier) return res.status(404).json({ message: 'Carrier not found' });
 
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return res.status(409).json({ message: 'An account with this email already exists' });
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
-
-    const portalUser = await prisma.user.create({
-      data: {
-        organizationId: req.user.organizationId,
-        email,
-        password: randomPw,
-        firstName,
-        lastName: lastName || '',
-        role: 'CARRIER',
-        isActive: true,
-        carrierId: carrier.id,
-        resetToken: hashedToken,
-        resetTokenExpiry: new Date(Date.now() + 72 * 60 * 60 * 1000),
-      },
-    });
-
     const inviteUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
     const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true } });
     const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : 'NexGen TMS';
+
+    let portalUser;
+    if (existing) {
+      // Re-invite: if user exists as CARRIER (possibly unlinked), update carrierId and resend
+      if (existing.role !== 'CARRIER') {
+        return res.status(409).json({ message: `A non-carrier account already exists for ${email}. Cannot overwrite.` });
+      }
+      portalUser = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          firstName,
+          lastName: lastName || existing.lastName || '',
+          carrierId: carrier.id,
+          organizationId: req.user.organizationId,
+          isActive: true,
+          resetToken: hashedToken,
+          resetTokenExpiry: new Date(Date.now() + 72 * 60 * 60 * 1000),
+        },
+      });
+    } else {
+      const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+      portalUser = await prisma.user.create({
+        data: {
+          organizationId: req.user.organizationId,
+          email,
+          password: randomPw,
+          firstName,
+          lastName: lastName || '',
+          role: 'CARRIER',
+          isActive: true,
+          carrierId: carrier.id,
+          resetToken: hashedToken,
+          resetTokenExpiry: new Date(Date.now() + 72 * 60 * 60 * 1000),
+        },
+      });
+    }
 
     await sendCarrierInviteEmail({ toEmail: email, firstName, companyName: carrier.name, inviteUrl, invitedBy });
 
     res.status(201).json({
       portalUserId: portalUser.id,
       carrierId: carrier.id,
+      relinked: !!existing,
       inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
       emailSent: !!process.env.RESEND_API_KEY,
     });
