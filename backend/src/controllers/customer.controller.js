@@ -8,7 +8,7 @@ const CREDIT_EXCLUDED = ['CANCELLED', 'COMPLETED', 'RECEIVED'];
 
 async function getCustomers(req, res) {
   try {
-    const where = { ...getVisibilityFilter(req.user) };
+    const where = { ...getVisibilityFilter(req.user, 'other') };
 
     const customers = await prisma.customer.findMany({
       where,

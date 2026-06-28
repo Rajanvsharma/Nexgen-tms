@@ -17,7 +17,7 @@ async function nextQuoteNumber(orgId) {
 
 async function getQuotes(req, res) {
   try {
-    const where = { ...getVisibilityFilter(req.user) };
+    const where = { ...getVisibilityFilter(req.user, 'other') };
 
     const quotes = await prisma.quote.findMany({
       where,
