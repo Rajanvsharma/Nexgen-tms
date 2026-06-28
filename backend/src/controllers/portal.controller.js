@@ -230,15 +230,87 @@ async function parseExcel(req, res) {
 async function getPortalMe(req, res) {
   try {
     const customerId = await resolveCustomerId(req.user);
-    if (!customerId) return res.json({ customer: null });
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
-      select: { id: true, name: true, email: true, phone: true, city: true, state: true, creditTerms: true },
-    });
-    res.json({ customer });
+    const [user, customer] = await Promise.all([
+      prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, firstName: true, lastName: true, email: true, phone: true } }),
+      customerId ? prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true, name: true, email: true, phone: true, address: true, city: true, state: true, zipCode: true, creditTerms: true },
+      }) : null,
+    ]);
+    res.json({ user, customer });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 }
 
-module.exports = { getMyQuotes, getMyLoads, createQuote, parseEmail, parseExcel, getPortalMe };
+async function updatePortalMe(req, res) {
+  try {
+    const { firstName, lastName, phone } = req.body;
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { ...(firstName && { firstName }), ...(lastName && { lastName }), ...(phone !== undefined && { phone }) },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+async function changePortalPassword(req, res) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: 'currentPassword and newPassword required' });
+    if (newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters' });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const ok = await bcrypt.compare(currentPassword, user.password);
+    if (!ok) return res.status(400).json({ message: 'Current password is incorrect' });
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
+    res.json({ message: 'Password updated' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+async function getMyInvoices(req, res) {
+  try {
+    const customerId = await resolveCustomerId(req.user);
+    if (!customerId) return res.status(403).json({ message: 'No customer account linked' });
+    const invoices = await prisma.invoice.findMany({
+      where: { customerId },
+      include: {
+        load: { select: { loadNumber: true, pickupCity: true, pickupState: true, deliveryCity: true, deliveryState: true, status: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(invoices);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+async function getMyDocuments(req, res) {
+  try {
+    const customerId = await resolveCustomerId(req.user);
+    if (!customerId) return res.status(403).json({ message: 'No customer account linked' });
+    const loads = await prisma.load.findMany({
+      where: { customerId },
+      select: { id: true, loadNumber: true },
+    });
+    const loadIds = loads.map(l => l.id);
+    const loadMap = Object.fromEntries(loads.map(l => [l.id, l.loadNumber]));
+    const [documents, pods] = await Promise.all([
+      prisma.document.findMany({ where: { loadId: { in: loadIds } }, orderBy: { createdAt: 'desc' } }),
+      prisma.proofOfDelivery.findMany({ where: { loadId: { in: loadIds } }, orderBy: { createdAt: 'desc' } }),
+    ]);
+    res.json({
+      documents: documents.map(d => ({ ...d, loadNumber: loadMap[d.loadId] })),
+      pods: pods.map(p => ({ ...p, loadNumber: loadMap[p.loadId] })),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = { getMyQuotes, getMyLoads, createQuote, parseEmail, parseExcel, getPortalMe, updatePortalMe, changePortalPassword, getMyInvoices, getMyDocuments };
