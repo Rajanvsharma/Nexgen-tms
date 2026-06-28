@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { useBrandingStore } from '@/store/branding.store';
+import api from '@/lib/api';
+
+let _cachedCarrier: { name: string; mcNumber: string } | null = null;
 
 const GridIcon   = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>;
 const TruckIcon  = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>;
@@ -34,8 +37,19 @@ export default function CarrierSidebar() {
   const router   = useRouter();
   const { user, logout } = useAuthStore();
   const { branding }     = useBrandingStore();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen]   = useState(true);
   const [mobile, setMobile] = useState(false);
+  const [carrierInfo, setCarrierInfo] = useState(_cachedCarrier);
+
+  useEffect(() => {
+    if (_cachedCarrier) return;
+    api.get('/carrier-portal/me').then(r => {
+      if (r.data.carrier) {
+        _cachedCarrier = { name: r.data.carrier.name, mcNumber: r.data.carrier.mcNumber };
+        setCarrierInfo(_cachedCarrier);
+      }
+    }).catch(() => {});
+  }, []);
 
   const primaryColor = branding.primaryColor;
   const accentColor  = branding.accentColor;
@@ -62,7 +76,8 @@ export default function CarrierSidebar() {
   const primary = primaryColor || '#f59e0b';
   const accent  = accentColor  || '#d97706';
 
-  const companyInitial = user?.firstName?.[0]?.toUpperCase() ?? 'C';
+  const companyName    = carrierInfo?.name ?? 'Carrier Portal';
+  const companyInitial = companyName[0]?.toUpperCase() ?? 'C';
   const userInitials   = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase();
 
   function isActive(href: string) {
@@ -85,9 +100,13 @@ export default function CarrierSidebar() {
             <div style={{ width: 34, height: 34, borderRadius: 9, background: `linear-gradient(135deg,${primary},${accent})`, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
               {companyInitial}
             </div>
-            <div>
-              <div style={{ color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '-0.3px', lineHeight: 1.2 }}>CARRIER</div>
-              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600, letterSpacing: '0.5px' }}>PORTAL</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '-0.3px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
+                {companyName}
+              </div>
+              {carrierInfo?.mcNumber && (
+                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600, letterSpacing: '0.5px' }}>MC# {carrierInfo.mcNumber}</div>
+              )}
             </div>
           </div>
         )}
@@ -146,7 +165,7 @@ export default function CarrierSidebar() {
           {open && (
             <div style={{ minWidth: 0 }}>
               <div style={{ color: '#fff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{user?.firstName} {user?.lastName}</div>
-              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600 }}>Carrier</div>
+              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }}>{companyName}</div>
             </div>
           )}
         </div>

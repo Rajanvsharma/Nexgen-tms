@@ -1,16 +1,31 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { useBrandingStore } from '@/store/branding.store';
+import api from '@/lib/api';
 
 interface Props { title?: string; subtitle?: string; }
+
+let _cachedCarrierName: string | null = null;
 
 export default function CarrierTopbar({ title, subtitle }: Props) {
   const { user, logout } = useAuthStore();
   const { branding }     = useBrandingStore();
   const router  = useRouter();
   const primary = branding.primaryColor || '#f59e0b';
+  const [carrierName, setCarrierName] = useState(_cachedCarrierName);
+
+  useEffect(() => {
+    if (_cachedCarrierName) return;
+    api.get('/carrier-portal/me').then(r => {
+      if (r.data.carrier?.name) {
+        _cachedCarrierName = r.data.carrier.name;
+        setCarrierName(_cachedCarrierName);
+      }
+    }).catch(() => {});
+  }, []);
 
   function handleLogout() { logout(); router.replace('/carrier-login'); }
 
@@ -21,6 +36,11 @@ export default function CarrierTopbar({ title, subtitle }: Props) {
         {subtitle && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>{subtitle}</div>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {carrierName && (
+          <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            🏢 {carrierName}
+          </span>
+        )}
         <span style={{ fontSize: 14, color: '#334155', fontWeight: 600 }}>{user?.firstName} {user?.lastName}</span>
         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: `${primary}20`, color: primary, fontWeight: 700 }}>Carrier</span>
         <button onClick={handleLogout} style={{ padding: '6px 14px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>

@@ -429,7 +429,7 @@ async function acceptBid(req, res) {
     if (!bid) return res.status(404).json({ message: 'Bid not found' });
 
     const [updatedLoad] = await prisma.$transaction([
-      prisma.load.update({ where: { id: load.id }, data: { carrierId: bid.carrierId, ...(bid.amount ? { carrierRate: bid.amount } : {}) }, include: { customer: { select: { name: true } } } }),
+      prisma.load.update({ where: { id: load.id }, data: { carrierId: bid.carrierId, status: 'BOOKED', ...(bid.amount ? { carrierRate: bid.amount } : {}) }, include: { customer: { select: { name: true } } } }),
       prisma.loadBid.update({ where: { id: bid.id }, data: { status: 'ACCEPTED' } }),
       prisma.loadBid.updateMany({ where: { loadId: req.params.id, id: { not: bid.id } }, data: { status: 'REJECTED' } }),
       prisma.loadAuditLog.create({
@@ -465,6 +465,11 @@ async function acceptBid(req, res) {
         sendBidRejectedEmail({ load: fullLoad, toEmail: u.email, toName: `${u.firstName} ${u.lastName}`.trim() }).catch(() => {});
       });
     }
+
+    // Notify the winning carrier in real-time so their portal auto-refreshes
+    emitToOrg(req.user.organizationId, 'bid_accepted', {
+      carrierId: bid.carrierId, loadId: load.id, loadNumber: fullLoad.loadNumber,
+    });
 
     res.json({ ok: true });
   } catch (err) {

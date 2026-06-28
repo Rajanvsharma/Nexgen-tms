@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CarrierTopbar from '@/components/layout/CarrierTopbar';
+import { useAuthStore } from '@/store/auth.store';
+import { useSocket } from '@/hooks/useSocket';
 import api from '@/lib/api';
 
 interface Stop { id:string; sequence:number; type:string; city:string; state:string; address:string|null; completedAt:string|null; }
@@ -45,14 +47,29 @@ function fmtMoney(n:number|null) { return n!=null ? `$${n.toLocaleString('en-US'
 
 export default function CarrierLoadsPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [loads,   setLoads]   = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState('');
   const [group,   setGroup]   = useState('All');
+  const [newBidToast, setNewBidToast] = useState<string|null>(null);
 
-  useEffect(() => {
+  const fetchLoads = useCallback(() => {
     api.get('/carrier-portal/loads').then(r=>setLoads(r.data)).finally(()=>setLoading(false));
   }, []);
+
+  useEffect(() => { fetchLoads(); }, [fetchLoads]);
+
+  useSocket({
+    bid_accepted: (data: unknown) => {
+      const d = data as { carrierId?: string; loadNumber?: string };
+      if (!d.carrierId || !user?.carrierId) return;
+      if (d.carrierId !== user.carrierId) return;
+      fetchLoads();
+      setNewBidToast(`✅ Your bid on load ${d.loadNumber} was accepted! It's now in your loads.`);
+      setTimeout(() => setNewBidToast(null), 6000);
+    },
+  });
 
   const visible = loads.filter(l => {
     const q = search.toLowerCase();
@@ -73,6 +90,12 @@ export default function CarrierLoadsPage() {
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
       <CarrierTopbar title="My Loads" subtitle="All loads assigned to your carrier" />
+      {newBidToast && (
+        <div style={{ background:'#065f46', color:'#fff', padding:'12px 24px', fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:10 }}>
+          {newBidToast}
+          <button onClick={()=>setNewBidToast(null)} style={{ marginLeft:'auto', background:'none', border:'none', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:16 }}>✕</button>
+        </div>
+      )}
       <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
 
         <div style={{ marginBottom:16 }}>
