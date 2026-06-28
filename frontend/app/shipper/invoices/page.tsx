@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ShipperTopbar from '@/components/layout/ShipperTopbar';
 import api from '@/lib/api';
 
 interface Invoice {
@@ -28,9 +29,11 @@ export default function InvoicesPage() {
   const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((s,i)=>s+i.amount,0);
 
   return (
-    <div>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <ShipperTopbar title="Invoices" subtitle="Billing & payment history" />
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
       <div style={{ marginBottom:22 }}>
-        <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>💰 Invoices</h1>
+        <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>Invoices</h1>
         <p style={{ color:'#64748b', fontSize:13, marginTop:4 }}>{invoices.length} invoices</p>
       </div>
 
@@ -94,6 +97,7 @@ export default function InvoicesPage() {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );

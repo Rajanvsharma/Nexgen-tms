@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import ShipperTopbar from '@/components/layout/ShipperTopbar';
 import api from '@/lib/api';
 
 type Method = 'manual' | 'email' | 'excel';
@@ -156,7 +157,10 @@ export default function NewQuotePage() {
   }
 
   return (
-    <div style={{ maxWidth: 780 }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <ShipperTopbar title="Request a Quote" subtitle="Manual, email, or Excel upload" />
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
+      <div style={{ maxWidth: 780 }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>Request a Quote</h1>
         <p style={{ color: '#64748b', fontSize: 13 }}>Choose how you'd like to submit your shipment details</p>
@@ -359,6 +363,8 @@ export default function NewQuotePage() {
             </button>
           </div>
         )}
+      </div>
+      </div>
       </div>
     </div>
   );

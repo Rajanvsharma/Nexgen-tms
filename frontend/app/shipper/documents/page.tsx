@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ShipperTopbar from '@/components/layout/ShipperTopbar';
 import api from '@/lib/api';
 
 interface Doc  { id:string; type:string; filename:string; loadId:string|null; loadNumber?:string; createdAt:string; signedAt:string|null; }
@@ -40,9 +41,11 @@ export default function DocumentsPage() {
   const counts = { rc:combined.filter(d=>d.type==='RATE_CONFIRMATION').length, bol:combined.filter(d=>d.type==='BOL').length, pod:combined.filter(d=>d.type==='POD').length };
 
   return (
-    <div>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <ShipperTopbar title="Documents" subtitle="Rate confirmations, BOLs & PODs" />
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
       <div style={{ marginBottom:22 }}>
-        <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>📄 Documents</h1>
+        <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>Documents</h1>
         <p style={{ color:'#64748b', fontSize:13, marginTop:4 }}>{combined.length} documents</p>
       </div>
 
@@ -96,6 +99,7 @@ export default function DocumentsPage() {
             })}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

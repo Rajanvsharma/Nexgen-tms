@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
+import ShipperTopbar from '@/components/layout/ShipperTopbar';
 import api from '@/lib/api';
 
 interface PortalUser { id:string; firstName:string; lastName:string; email:string; phone:string|null; }
@@ -67,9 +68,12 @@ export default function SettingsPage() {
   const initials = `${user?.firstName?.[0]??''}${user?.lastName?.[0]??''}`.toUpperCase();
 
   return (
-    <div style={{ maxWidth:680 }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <ShipperTopbar title="Account Settings" subtitle="Profile & security" />
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
+      <div style={{ maxWidth:680 }}>
       <div style={{ marginBottom:26 }}>
-        <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>⚙️ Account Settings</h1>
+        <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>Account Settings</h1>
         <p style={{ color:'#64748b', fontSize:13, marginTop:4 }}>Manage your profile and security settings</p>
       </div>
 
@@ -139,6 +143,8 @@ export default function SettingsPage() {
         <button onClick={changePassword} disabled={savingPw} style={{ padding:'9px 22px', background:'#dc2626', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:savingPw?'not-allowed':'pointer', opacity:savingPw?0.7:1 }}>
           {savingPw ? 'Updating…' : 'Update Password'}
         </button>
+      </div>
+      </div>
       </div>
     </div>
   );

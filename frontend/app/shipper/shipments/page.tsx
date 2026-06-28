@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ShipperTopbar from '@/components/layout/ShipperTopbar';
 import api from '@/lib/api';
 
 interface Load {
@@ -37,9 +38,11 @@ export default function ShipmentsPage() {
   });
 
   return (
-    <div>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <ShipperTopbar title="My Shipments" subtitle="Track your loads" />
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
       <div style={{ marginBottom:22 }}>
-        <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>🚚 My Shipments</h1>
+        <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>My Shipments</h1>
         <p style={{ color:'#64748b', fontSize:13, marginTop:4 }}>{loads.length} total shipments</p>
       </div>
 
@@ -105,6 +108,7 @@ export default function ShipmentsPage() {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );

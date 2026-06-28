@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
+import ShipperTopbar from '@/components/layout/ShipperTopbar';
 import api from '@/lib/api';
 
 interface Quote { id: string; quoteNumber: string; status: string; pickupCity: string; pickupState: string; deliveryCity: string; deliveryState: string; equipment: string; rate: number; createdAt: string; }
@@ -48,7 +49,9 @@ export default function ShipperDashboard() {
   ];
 
   return (
-    <div>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <ShipperTopbar title="Dashboard" subtitle="Shipments overview" />
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
       {/* Header */}
       <div style={{ marginBottom:26 }}>
         <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>Welcome back, {user?.firstName} 👋</h1>
@@ -160,6 +163,7 @@ export default function ShipperDashboard() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
