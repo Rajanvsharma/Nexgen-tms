@@ -364,10 +364,10 @@ export default function UsersPage() {
                         </div>
                         <div className="space-y-1">
                           <Label>Assign to Team <span className="text-gray-400 font-normal">(optional)</span></Label>
-                          <Select value={inviteForm.teamId} onValueChange={v => setInviteForm(f => ({ ...f, teamId: v }))}>
+                          <Select value={inviteForm.teamId || '__none__'} onValueChange={v => setInviteForm(f => ({ ...f, teamId: v === '__none__' ? '' : v }))}>
                             <SelectTrigger><SelectValue placeholder="No team" /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">No team</SelectItem>
+                              <SelectItem value="__none__">No team</SelectItem>
                               {teams.filter(t => t.isActive).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
@@ -413,10 +413,10 @@ export default function UsersPage() {
                       {form.role !== 'CUSTOMER' && form.role !== 'CARRIER' && (
                         <div className="space-y-1">
                           <Label>Team <span className="text-gray-400 font-normal">(optional)</span></Label>
-                          <Select value={form.teamId} onValueChange={v => setForm({ ...form, teamId: v })}>
+                          <Select value={form.teamId || '__none__'} onValueChange={v => setForm({ ...form, teamId: v === '__none__' ? '' : v })}>
                             <SelectTrigger><SelectValue placeholder="No team" /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">No team</SelectItem>
+                              <SelectItem value="__none__">No team</SelectItem>
                               {teams.filter(t => t.isActive).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
@@ -513,10 +513,10 @@ export default function UsersPage() {
                     </div>
                     <div className="space-y-1">
                       <Label>Team Manager <span className="text-gray-400 font-normal">(optional)</span></Label>
-                      <Select value={teamForm.managerId} onValueChange={v => setTeamForm(f => ({ ...f, managerId: v }))}>
+                      <Select value={teamForm.managerId || '__none__'} onValueChange={v => setTeamForm(f => ({ ...f, managerId: v === '__none__' ? '' : v }))}>
                         <SelectTrigger><SelectValue placeholder="Assign a manager…" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No manager yet</SelectItem>
+                          <SelectItem value="__none__">No manager yet</SelectItem>
                           {users
                             .filter(u => u.isActive && u.role !== 'CUSTOMER' && u.role !== 'CARRIER')
                             .map(u => (
