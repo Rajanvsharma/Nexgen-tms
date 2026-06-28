@@ -9,7 +9,7 @@ import Toaster from '@/components/ui/Toaster';
 
 export default function CarrierLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuthStore();
-  const { loadBranding }    = useBrandingStore();
+  const { load: loadBranding } = useBrandingStore();
   const router = useRouter();
 
   useEffect(() => { loadBranding(); }, []);

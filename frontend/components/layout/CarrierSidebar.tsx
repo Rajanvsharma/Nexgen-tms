@@ -28,12 +28,16 @@ const NAV_BOTTOM = [
 export default function CarrierSidebar() {
   const pathname = usePathname();
   const router   = useRouter();
-  const { user, clearAuth } = useAuthStore();
-  const { primaryColor, accentColor, sidebarBg, loadBranding } = useBrandingStore();
+  const { user, logout } = useAuthStore();
+  const { branding }     = useBrandingStore();
   const [open, setOpen] = useState(true);
   const [mobile, setMobile] = useState(false);
 
-  useEffect(() => { loadBranding(); }, []);
+  const primaryColor = branding.primaryColor;
+  const accentColor  = branding.accentColor;
+  const sidebarBg    = branding.sidebarBg;
+
+  useEffect(() => {}, []);
   useEffect(() => {
     const check = () => {
       const isMobile = window.innerWidth < 768;
@@ -45,8 +49,8 @@ export default function CarrierSidebar() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  function logout() {
-    clearAuth();
+  function handleLogout() {
+    logout();
     router.replace('/carrier-login');
   }
 
@@ -143,7 +147,7 @@ export default function CarrierSidebar() {
           )}
         </div>
         {open && (
-          <button onClick={logout} title="Logout" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 6, transition: 'color 0.15s' }}
+          <button onClick={handleLogout} title="Logout" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 6, transition: 'color 0.15s' }}
             onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
             onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>
             <LogoutIcon />
