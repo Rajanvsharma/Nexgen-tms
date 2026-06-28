@@ -25,9 +25,10 @@ function ResetPasswordForm() {
 
     setLoading(true);
     try {
-      await axios.post(process.env.NEXT_PUBLIC_API_URL + '/api/auth/reset-password', { token, password });
+      const { data } = await axios.post(process.env.NEXT_PUBLIC_API_URL + '/api/auth/reset-password', { token, password });
       setDone(true);
-      setTimeout(() => router.replace('/login'), 3000);
+      const loginPath = data.role === 'CARRIER' ? '/carrier-login' : '/login';
+      setTimeout(() => router.replace(loginPath), 3000);
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err) ? err.response?.data?.message : 'Reset failed';
       setError(msg || 'Reset failed');

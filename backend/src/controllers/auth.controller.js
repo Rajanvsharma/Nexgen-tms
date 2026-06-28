@@ -249,7 +249,7 @@ async function resetPassword(req, res) {
     });
     await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
 
-    res.json({ message: 'Password reset successfully. Please log in.' });
+    res.json({ message: 'Password reset successfully. Please log in.', role: user.role });
   } catch (err) {
     console.error('resetPassword error:', err);
     res.status(500).json({ message: 'Internal server error' });
