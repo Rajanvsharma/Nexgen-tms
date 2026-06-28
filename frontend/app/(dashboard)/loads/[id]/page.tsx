@@ -70,7 +70,9 @@ export default function LoadDetailPage() {
   const [pods,        setPods]        = useState<POD[]>([]);
   const [accessorials,setAccessorials]= useState<Accessorial[]>([]);
   const [stops,       setStops]       = useState<LoadStop[]>([]);
-  const [tab,         setTab]         = useState<'pods'|'accessorials'|'stops'>('pods');
+  const [tab,         setTab]         = useState<'pods'|'accessorials'|'stops'|'bids'>('pods');
+  const [bids,        setBids]        = useState<{id:string;carrierId:string;amount:number|null;notes:string|null;status:string;createdAt:string;carrier:{id:string;name:string;mcNumber:string;email:string|null;phone:string|null;status:string;}}[]>([]);
+  const [bidsSaving,  setBidsSaving]  = useState<string|null>(null);
   const [loading,     setLoading]     = useState(true);
 
   // POD upload state
@@ -103,10 +105,11 @@ export default function LoadDetailPage() {
   const fetchPods  = useCallback(() => api.get(`/loads/${id}/pods`).then(r => setPods(r.data)).catch(() => {}), [id]);
   const fetchAccs  = useCallback(() => api.get(`/loads/${id}/accessorials`).then(r => setAccessorials(r.data)).catch(() => {}), [id]);
   const fetchStops = useCallback(() => api.get(`/loads/${id}/stops`).then(r => setStops(r.data)).catch(() => {}), [id]);
+  const fetchBids  = useCallback(() => api.get(`/loads/${id}/bids`).then(r => setBids(r.data)).catch(() => {}), [id]);
 
   useEffect(() => {
-    Promise.all([fetchLoad(), fetchPods(), fetchAccs(), fetchStops()]).finally(() => setLoading(false));
-  }, [fetchLoad, fetchPods, fetchAccs, fetchStops]);
+    Promise.all([fetchLoad(), fetchPods(), fetchAccs(), fetchStops(), fetchBids()]).finally(() => setLoading(false));
+  }, [fetchLoad, fetchPods, fetchAccs, fetchStops, fetchBids]);
 
   // ── POD upload ──────────────────────────────────────────────────────────────
   async function handleUploadPOD() {
@@ -309,14 +312,14 @@ export default function LoadDetailPage() {
         {/* ── Tabs ── */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-            {(['pods','accessorials','stops'] as const).map(t => (
+            {(['pods','accessorials','stops','bids'] as const).map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
                 padding: '12px 22px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 border: 'none', background: 'transparent', outline: 'none',
                 color: tab === t ? '#1d4ed8' : '#64748b',
                 borderBottom: tab === t ? '2px solid #1d4ed8' : '2px solid transparent',
               }}>
-                {t === 'pods' ? `PODs (${pods.length})` : t === 'accessorials' ? `Accessorials (${accessorials.length})` : `Stops (${stops.length})`}
+                {t === 'pods' ? `PODs (${pods.length})` : t === 'accessorials' ? `Accessorials (${accessorials.length})` : t === 'stops' ? `Stops (${stops.length})` : `Carrier Bids${bids.length>0?` (${bids.length})`:''}`}
               </button>
             ))}
           </div>
@@ -569,6 +572,84 @@ export default function LoadDetailPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+          {/* ── Carrier Bids Tab ── */}
+          {tab === 'bids' && (
+            <div style={{ padding: '20px 24px' }}>
+              {bids.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 24px', color: '#94a3b8' }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>🚛</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#334155', marginBottom: 6 }}>No carrier bids yet</div>
+                  <div style={{ fontSize: 13 }}>Carrier bids submitted via the carrier portal will appear here.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {bids.map(b => {
+                    const BID_STYLE: Record<string,{bg:string;color:string}> = {
+                      PENDING:   { bg:'#fef3c7', color:'#b45309' },
+                      ACCEPTED:  { bg:'#d1fae5', color:'#065f46' },
+                      REJECTED:  { bg:'#fee2e2', color:'#b91c1c' },
+                      WITHDRAWN: { bg:'#f1f5f9', color:'#475569' },
+                    };
+                    const ss = BID_STYLE[b.status] ?? { bg:'#f1f5f9', color:'#475569' };
+                    return (
+                      <div key={b.id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px 18px', background: '#fafafa', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: 200 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{b.carrier.name}</span>
+                            <span style={{ fontSize: 11, color: '#64748b' }}>MC#{b.carrier.mcNumber}</span>
+                            <span style={{ padding: '2px 8px', borderRadius: 9999, fontSize: 11, fontWeight: 700, background: ss.bg, color: ss.color }}>{b.status}</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: '#64748b' }}>
+                            {b.carrier.email && <span>{b.carrier.email}</span>}
+                            {b.carrier.phone && <span> · {b.carrier.phone}</span>}
+                          </div>
+                          {b.notes && <div style={{ fontSize: 12, color: '#334155', marginTop: 6, fontStyle: 'italic' }}>"{b.notes}"</div>}
+                        </div>
+                        <div style={{ textAlign: 'right', minWidth: 100 }}>
+                          <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
+                            {b.amount ? `$${b.amount.toLocaleString('en-US',{minimumFractionDigits:0})}` : '—'}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>Bid Rate</div>
+                        </div>
+                        {b.status === 'PENDING' && (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              disabled={bidsSaving === b.id}
+                              onClick={async () => {
+                                setBidsSaving(b.id);
+                                try {
+                                  await api.post(`/loads/${id}/bids/${b.id}/accept`);
+                                  toast.success('Bid accepted — carrier assigned to load');
+                                  fetchLoad(); fetchBids();
+                                } catch (e: any) {
+                                  toast.error(e.response?.data?.message || 'Failed to accept bid');
+                                } finally { setBidsSaving(null); }
+                              }}
+                              style={{ padding: '8px 16px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: bidsSaving===b.id?0.6:1 }}>
+                              ✓ Accept
+                            </button>
+                            <button
+                              disabled={bidsSaving === b.id}
+                              onClick={async () => {
+                                setBidsSaving(b.id);
+                                try {
+                                  await api.post(`/loads/${id}/bids/${b.id}/reject`);
+                                  toast.success('Bid rejected');
+                                  fetchBids();
+                                } catch { toast.error('Failed to reject bid'); } finally { setBidsSaving(null); }
+                              }}
+                              style={{ padding: '8px 14px', background: '#fff', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: bidsSaving===b.id?0.6:1 }}>
+                              ✕ Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

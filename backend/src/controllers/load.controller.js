@@ -336,4 +336,53 @@ async function getLoadAudit(req, res) {
   }
 }
 
-module.exports = { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate, assignLoad, getLoadAudit };
+// ── Carrier Bids (dispatcher view) ───────────────────────────────────────────
+
+async function getLoadBids(req, res) {
+  try {
+    const load = await prisma.load.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId }, select: { id: true } });
+    if (!load) return res.status(404).json({ message: 'Load not found' });
+    const bids = await prisma.loadBid.findMany({
+      where: { loadId: req.params.id },
+      orderBy: { createdAt: 'asc' },
+      include: { carrier: { select: { id: true, name: true, mcNumber: true, dotNumber: true, email: true, phone: true, status: true } } },
+    });
+    res.json(bids);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+async function acceptBid(req, res) {
+  try {
+    const load = await prisma.load.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId }, select: { id: true, status: true } });
+    if (!load) return res.status(404).json({ message: 'Load not found' });
+    const bid = await prisma.loadBid.findFirst({ where: { id: req.params.bidId, loadId: req.params.id } });
+    if (!bid) return res.status(404).json({ message: 'Bid not found' });
+
+    await prisma.$transaction([
+      prisma.loadBid.update({ where: { id: bid.id }, data: { status: 'ACCEPTED' } }),
+      prisma.loadBid.updateMany({ where: { loadId: req.params.id, id: { not: bid.id } }, data: { status: 'REJECTED' } }),
+      prisma.load.update({ where: { id: load.id }, data: { carrierId: bid.carrierId, ...(bid.amount ? { carrierRate: bid.amount } : {}) } }),
+      prisma.loadAuditLog.create({
+        data: { loadId: load.id, action: 'status_changed', fromValue: 'UNASSIGNED', toValue: 'CARRIER_ASSIGNED', changedById: req.user.id },
+      }),
+    ]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+async function rejectBid(req, res) {
+  try {
+    const load = await prisma.load.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId }, select: { id: true } });
+    if (!load) return res.status(404).json({ message: 'Load not found' });
+    await prisma.loadBid.updateMany({ where: { id: req.params.bidId, loadId: req.params.id }, data: { status: 'REJECTED' } });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate, assignLoad, getLoadAudit, getLoadBids, acceptBid, rejectBid };

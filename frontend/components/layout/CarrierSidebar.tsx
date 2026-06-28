@@ -13,13 +13,17 @@ const LogoutIcon = () => <svg width="16" height="16" fill="none" stroke="current
 const MenuIcon   = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
 const CloseIcon  = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 
-const BoardIcon  = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="17" width="11" height="4" rx="1"/></svg>;
+const BoardIcon   = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="17" width="11" height="4" rx="1"/></svg>;
+const MoneyIcon   = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>;
+const ChatIcon    = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>;
 
 const NAV_MAIN = [
   { id: 'dashboard', label: 'Dashboard',       icon: <GridIcon />,  href: '/carrier' },
   { id: 'available', label: 'Available Loads',  icon: <BoardIcon />, href: '/carrier/available' },
   { id: 'loads',     label: 'My Loads',         icon: <TruckIcon />, href: '/carrier/loads' },
   { id: 'documents', label: 'Documents',        icon: <DocIcon />,   href: '/carrier/documents' },
+  { id: 'payments',  label: 'Payments',         icon: <MoneyIcon />, href: '/carrier/payments' },
+  { id: 'messages',  label: 'Messages',         icon: <ChatIcon />,  href: '/carrier/messages' },
 ];
 const NAV_BOTTOM = [
   { id: 'settings', label: 'Account Settings', icon: <GearIcon />, href: '/carrier/settings' },
