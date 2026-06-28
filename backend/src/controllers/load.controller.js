@@ -38,7 +38,18 @@ async function getLoads(req, res) {
       prisma.load.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take: limit, include: LOAD_INCLUDE }),
       prisma.load.count({ where }),
     ]);
-    const result = req.user.role === 'CUSTOMER' ? loads.map(stripDriverPII) : loads;
+
+    // Attach pending bid counts without touching LOAD_INCLUDE
+    const loadIds = loads.map(l => l.id);
+    const bidCounts = loadIds.length ? await prisma.loadBid.groupBy({
+      by: ['loadId'],
+      where: { loadId: { in: loadIds }, status: 'PENDING' },
+      _count: { id: true },
+    }).catch(() => []) : [];
+    const bidCountMap = Object.fromEntries(bidCounts.map(b => [b.loadId, b._count.id]));
+    const loadsWithBids = loads.map(l => ({ ...l, pendingBidCount: bidCountMap[l.id] || 0 }));
+
+    const result = req.user.role === 'CUSTOMER' ? loadsWithBids.map(stripDriverPII) : loadsWithBids;
     res.json({ loads: result, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err) {
     console.error('getLoads error:', err);
@@ -472,4 +483,27 @@ async function rejectBid(req, res) {
   }
 }
 
-module.exports = { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate, assignLoad, getLoadAudit, getLoadBids, acceptBid, rejectBid };
+async function getPendingBidsCount(req, res) {
+  try {
+    const orgId = req.user.organizationId;
+    const bids = await prisma.loadBid.groupBy({
+      by: ['loadId'],
+      where: { load: { organizationId: orgId }, status: 'PENDING' },
+      _count: { id: true },
+    });
+    const loadIds = bids.map(b => b.loadId);
+    const loads = loadIds.length ? await prisma.load.findMany({
+      where: { id: { in: loadIds } },
+      select: { id: true, loadNumber: true },
+    }) : [];
+    const numMap = Object.fromEntries(loads.map(l => [l.id, l.loadNumber]));
+    res.json({
+      count: bids.reduce((s, b) => s + b._count.id, 0),
+      items: bids.map(b => ({ loadId: b.loadId, loadNumber: numMap[b.loadId] || '', bidCount: b._count.id })),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate, assignLoad, getLoadAudit, getLoadBids, acceptBid, rejectBid, getPendingBidsCount };

@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { useBrandingStore } from '@/store/branding.store';
+import { useSocket } from '@/hooks/useSocket';
 import api from '@/lib/api';
 import GlobalSearch from '@/components/GlobalSearch';
 
@@ -17,6 +19,27 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
   const { branding } = useBrandingStore();
   const primary = branding.primaryColor;
 
+  const [pendingBids, setPendingBids] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function fetchPendingBids() {
+    try {
+      const { data } = await api.get('/loads/pending-bids');
+      setPendingBids(data.count || 0);
+    } catch { /* non-critical */ }
+  }
+
+  useEffect(() => {
+    if (!user) return;
+    fetchPendingBids();
+    intervalRef.current = setInterval(fetchPendingBids, 30_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [user]);
+
+  useSocket({
+    new_bid: () => { fetchPendingBids(); },
+  });
+
   async function handleLogout() {
     try { await api.post('/auth/logout'); } finally {
       logout();
@@ -29,7 +52,6 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
     const v = (e.target as HTMLInputElement).value.trim();
     if (!v) return;
     (e.target as HTMLInputElement).value = '';
-    // Fire copilot
     const event = new CustomEvent('copilot:ask', { detail: v });
     window.dispatchEvent(event);
   }
@@ -61,12 +83,24 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
         <GlobalSearch />
       </div>
 
-      {/* Notification bell */}
+      {/* Notification bell — shows red badge when carriers have submitted bids */}
       <button
-        onClick={() => router.push('/announcements')}
+        onClick={() => router.push('/loads')}
+        title={pendingBids > 0 ? `${pendingBids} pending carrier bid${pendingBids > 1 ? 's' : ''}` : 'Loads'}
         style={{ position: 'relative', width: 34, height: 34, border: '1px solid #e2e8f0', background: '#fff', borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 15, color: '#475569', cursor: 'pointer', flexShrink: 0 }}
       >
         🔔
+        {pendingBids > 0 && (
+          <span style={{
+            position: 'absolute', top: -5, right: -5,
+            background: '#ef4444', color: '#fff',
+            borderRadius: 9999, fontSize: 10, fontWeight: 800,
+            minWidth: 17, height: 17, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 4px', border: '2px solid #fff', lineHeight: 1,
+          }}>
+            {pendingBids > 99 ? '99+' : pendingBids}
+          </span>
+        )}
       </button>
 
       {/* User info — hide verbose info on mobile */}

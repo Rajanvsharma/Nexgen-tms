@@ -1,10 +1,11 @@
 const router = require('express').Router();
-const { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate, assignLoad, getLoadAudit, getLoadBids, acceptBid, rejectBid } = require('../controllers/load.controller');
+const { getLoads, getLoad, createLoad, updateLoad, deleteLoad, dispatchLoad, checkDuplicate, assignLoad, getLoadAudit, getLoadBids, acceptBid, rejectBid, getPendingBidsCount } = require('../controllers/load.controller');
 const { bulkUpdateStatus, bulkDelete, bulkInvoice } = require('../controllers/bulk.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
 
 router.use(verifyToken);
 router.get('/check-duplicate', checkDuplicate);
+router.get('/pending-bids', getPendingBidsCount);
 router.get('/', getLoads);
 router.get('/:id', getLoad);
 router.post('/', createLoad);

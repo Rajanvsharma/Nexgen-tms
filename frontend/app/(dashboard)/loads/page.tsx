@@ -24,6 +24,7 @@ interface Load {
   carrier: { id: string; name: string; mcNumber: string } | null;
   assignedUser: { id: string; firstName: string; lastName: string } | null;
   createdAt: string;
+  pendingBidCount: number;
 }
 interface OrgUser { id: string; firstName: string; lastName: string; role: string; teamId?: string | null; }
 interface Customer { id: string; name: string; }
@@ -555,7 +556,7 @@ export default function LoadsPage() {
                   </th>
                   {['Load #','Customer','Route','Equipment','Customer Rate','Carrier Rate','Margin','Pickup',
                     ...(isManager ? ['Assigned To'] : []),
-                    'Status','Actions'].map(h => (
+                    'Bids','Status','Actions'].map(h => (
                     <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -601,6 +602,15 @@ export default function LoadsPage() {
                           )}
                         </td>
                       )}
+                      <td style={{ padding: '12px' }}>
+                        {l.pendingBidCount > 0 ? (
+                          <a href={`/loads/${l.id}#bids`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 9999, fontSize: 11, fontWeight: 800, color: '#c2410c', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                            🏷 {l.pendingBidCount}
+                          </a>
+                        ) : (
+                          <span style={{ color: '#cbd5e1', fontSize: 12 }}>—</span>
+                        )}
+                      </td>
                       <td style={{ padding: '12px' }}>
                         <select
                           value={l.status}

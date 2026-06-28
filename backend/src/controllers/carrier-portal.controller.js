@@ -4,6 +4,7 @@ const crypto   = require('crypto');
 const path     = require('path');
 const { uploadFile } = require('../services/storage.service');
 const { sendCarrierStatusUpdateEmail, sendPODUploadedEmail, sendNewBidEmail } = require('../services/outbound.service');
+const { emitToOrg } = require('../services/socket.service');
 
 async function resolveCarrierId(user) {
   if (user.carrierId) return user.carrierId;
@@ -398,6 +399,15 @@ async function submitBid(req, res) {
           carrierName: carrier.name, mcNumber: carrier.mcNumber,
           amount: amount ? parseFloat(amount) : null, notes: notes || null,
         }).catch(() => {});
+      });
+    }
+
+    // Emit real-time socket event so Topbar badge updates instantly
+    if (fullLoad?.organizationId) {
+      emitToOrg(fullLoad.organizationId, 'new_bid', {
+        loadId: load.id, loadNumber: fullLoad.loadNumber,
+        carrierName: carrier?.name || req.user.email,
+        amount: bid.amount,
       });
     }
 
