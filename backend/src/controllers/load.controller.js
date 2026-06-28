@@ -3,6 +3,10 @@ const { emitToOrg }   = require('../services/socket.service');
 const { fireWorkflowEvent } = require('../services/workflow.service');
 const { getVisibilityFilter } = require('../middleware/visibility.middleware');
 const { logLoadAction } = require('../services/audit.service');
+const {
+  sendLoadStatusChangedEmail, sendCarrierDispatchedEmail,
+  sendBidAcceptedEmail, sendBidRejectedEmail, sendNewBidEmail,
+} = require('../services/outbound.service');
 
 const LOAD_INCLUDE = {
   customer: { select: { id: true, name: true } },
@@ -191,9 +195,49 @@ async function updateLoad(req, res) {
     if (data.carrierId && data.carrierId !== prevCarrierId) {
       const carrier = await prisma.carrier.findUnique({ where: { id: data.carrierId } }).catch(() => null);
       fireWorkflowEvent('carrier_assigned', { organizationId: orgId, load, carrier }).catch(() => {});
+      // Email carrier portal users about the assignment
+      if (carrier) {
+        const portalUsers = await prisma.user.findMany({
+          where: { carrierId: data.carrierId, role: 'CARRIER', isActive: true },
+          select: { email: true, firstName: true, lastName: true },
+        }).catch(() => []);
+        const BASE = (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app').replace(/\/$/, '');
+        portalUsers.forEach(u => {
+          sendCarrierDispatchedEmail({
+            load, toEmail: u.email, toName: `${u.firstName} ${u.lastName}`.trim(),
+            carrierPortalUrl: `${BASE}/carrier/loads/${load.id}`,
+          }).catch(() => {});
+        });
+      }
     }
     if (data.status && data.status !== existing.status) {
       fireWorkflowEvent('load_status_changed', { organizationId: orgId, load }).catch(() => {});
+      // Email customer + carrier about status change
+      const changedBy = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email;
+      const BASE = (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app').replace(/\/$/, '');
+      // Fetch customer email
+      const customer = await prisma.customer.findUnique({ where: { id: load.customerId }, select: { email: true, name: true } }).catch(() => null);
+      if (customer?.email) {
+        sendLoadStatusChangedEmail({
+          load, toEmail: customer.email, toName: customer.name,
+          fromStatus: existing.status, toStatus: data.status,
+          changedBy, portalUrl: `${BASE}/shipper/track/${load.id}`,
+        }).catch(() => {});
+      }
+      // Email carrier portal users
+      if (load.carrierId) {
+        const portalUsers = await prisma.user.findMany({
+          where: { carrierId: load.carrierId, role: 'CARRIER', isActive: true },
+          select: { email: true, firstName: true, lastName: true },
+        }).catch(() => []);
+        portalUsers.forEach(u => {
+          sendLoadStatusChangedEmail({
+            load, toEmail: u.email, toName: `${u.firstName} ${u.lastName}`.trim(),
+            fromStatus: existing.status, toStatus: data.status,
+            changedBy, portalUrl: `${BASE}/carrier/loads/${load.id}`,
+          }).catch(() => {});
+        });
+      }
     }
 
     res.json(load);
@@ -257,6 +301,19 @@ async function dispatchLoad(req, res) {
     await prisma.carrierLane.updateMany({
       where: { carrierId, origin: existing.pickupState, destination: existing.deliveryState },
       data: { lastUsed: new Date() },
+    });
+
+    // Email carrier portal users
+    const BASE = (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app').replace(/\/$/, '');
+    const portalUsers = await prisma.user.findMany({
+      where: { carrierId, role: 'CARRIER', isActive: true },
+      select: { email: true, firstName: true, lastName: true },
+    }).catch(() => []);
+    portalUsers.forEach(u => {
+      sendCarrierDispatchedEmail({
+        load, toEmail: u.email, toName: `${u.firstName} ${u.lastName}`.trim(),
+        carrierPortalUrl: `${BASE}/carrier/loads/${load.id}`,
+      }).catch(() => {});
     });
 
     res.json(load);
@@ -360,14 +417,44 @@ async function acceptBid(req, res) {
     const bid = await prisma.loadBid.findFirst({ where: { id: req.params.bidId, loadId: req.params.id } });
     if (!bid) return res.status(404).json({ message: 'Bid not found' });
 
-    await prisma.$transaction([
+    const [updatedLoad] = await prisma.$transaction([
+      prisma.load.update({ where: { id: load.id }, data: { carrierId: bid.carrierId, ...(bid.amount ? { carrierRate: bid.amount } : {}) }, include: { customer: { select: { name: true } } } }),
       prisma.loadBid.update({ where: { id: bid.id }, data: { status: 'ACCEPTED' } }),
       prisma.loadBid.updateMany({ where: { loadId: req.params.id, id: { not: bid.id } }, data: { status: 'REJECTED' } }),
-      prisma.load.update({ where: { id: load.id }, data: { carrierId: bid.carrierId, ...(bid.amount ? { carrierRate: bid.amount } : {}) } }),
       prisma.loadAuditLog.create({
         data: { loadId: load.id, action: 'status_changed', fromValue: 'UNASSIGNED', toValue: 'CARRIER_ASSIGNED', changedById: req.user.id },
       }),
     ]);
+
+    // Email accepted carrier
+    const BASE = (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app').replace(/\/$/, '');
+    const fullLoad = await prisma.load.findUnique({ where: { id: load.id } }).catch(() => load);
+    const portalUsers = await prisma.user.findMany({
+      where: { carrierId: bid.carrierId, role: 'CARRIER', isActive: true },
+      select: { email: true, firstName: true, lastName: true },
+    }).catch(() => []);
+    portalUsers.forEach(u => {
+      sendBidAcceptedEmail({
+        load: fullLoad, toEmail: u.email, toName: `${u.firstName} ${u.lastName}`.trim(),
+        bidAmount: bid.amount, carrierPortalUrl: `${BASE}/carrier/loads/${load.id}`,
+      }).catch(() => {});
+    });
+
+    // Email rejected carriers
+    const rejectedBids = await prisma.loadBid.findMany({
+      where: { loadId: req.params.id, id: { not: bid.id }, status: 'REJECTED' },
+      include: { carrier: { select: { id: true, name: true } } },
+    }).catch(() => []);
+    for (const rb of rejectedBids) {
+      const rejectUsers = await prisma.user.findMany({
+        where: { carrierId: rb.carrierId, role: 'CARRIER', isActive: true },
+        select: { email: true, firstName: true, lastName: true },
+      }).catch(() => []);
+      rejectUsers.forEach(u => {
+        sendBidRejectedEmail({ load: fullLoad, toEmail: u.email, toName: `${u.firstName} ${u.lastName}`.trim() }).catch(() => {});
+      });
+    }
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: err.message });

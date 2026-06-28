@@ -3,6 +3,7 @@ const bcrypt   = require('bcryptjs');
 const crypto   = require('crypto');
 const path     = require('path');
 const { uploadFile } = require('../services/storage.service');
+const { sendCarrierStatusUpdateEmail, sendPODUploadedEmail, sendNewBidEmail } = require('../services/outbound.service');
 
 async function resolveCarrierId(user) {
   if (user.carrierId) return user.carrierId;
@@ -187,6 +188,36 @@ async function updateCarrierLoadStatus(req, res) {
       ...(note ? [prisma.note.create({ data: { loadId: load.id, body: `[Carrier Update] ${note}`, authorId: req.user.id } })] : []),
     ]);
 
+    // Email the dispatcher / assigned user about the carrier's status update
+    const fullLoad = await prisma.load.findUnique({
+      where: { id: load.id },
+      select: { id: true, loadNumber: true, pickupCity: true, pickupState: true, deliveryCity: true, deliveryState: true, assignedTo: true, organizationId: true },
+    }).catch(() => null);
+    if (fullLoad) {
+      const carrier = carrierId ? await prisma.carrier.findUnique({ where: { id: carrierId }, select: { name: true } }).catch(() => null) : null;
+      const targets = [];
+      if (fullLoad.assignedTo) {
+        const u = await prisma.user.findUnique({ where: { id: fullLoad.assignedTo }, select: { email: true, firstName: true, lastName: true } }).catch(() => null);
+        if (u?.email) targets.push(u);
+      } else {
+        // Fallback: email org admins
+        const admins = await prisma.user.findMany({
+          where: { organizationId: fullLoad.organizationId, role: { in: ['ADMIN','OPS_MANAGER','DISPATCHER'] }, isActive: true },
+          select: { email: true, firstName: true, lastName: true },
+          take: 3,
+        }).catch(() => []);
+        targets.push(...admins);
+      }
+      targets.forEach(u => {
+        sendCarrierStatusUpdateEmail({
+          load: fullLoad, toEmail: u.email,
+          toName: `${u.firstName} ${u.lastName}`.trim(),
+          newStatus: status, note: note || null,
+          carrierName: carrier?.name || req.user.email,
+        }).catch(() => {});
+      });
+    }
+
     res.json({ ok: true, status });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -213,6 +244,7 @@ async function uploadCarrierPOD(req, res) {
 
     const fileUrl = await uploadFile(req.file.buffer, filename, req.file.mimetype);
 
+    const podType = req.body.podType || 'POD';
     const pod = await prisma.proofOfDelivery.create({
       data: {
         organizationId: load.organizationId,
@@ -220,11 +252,39 @@ async function uploadCarrierPOD(req, res) {
         filename: req.file.originalname,
         fileUrl,
         fileSize: req.file.size,
-        podType: req.body.podType || 'POD',
+        podType,
         notes: req.body.notes || null,
         uploadedById: req.user.id,
       },
     });
+
+    // Email dispatcher / assigned user about the POD upload
+    const fullLoad = await prisma.load.findUnique({
+      where: { id: load.id },
+      select: { id: true, loadNumber: true, pickupCity: true, pickupState: true, deliveryCity: true, deliveryState: true, assignedTo: true, organizationId: true },
+    }).catch(() => null);
+    if (fullLoad) {
+      const carrierRec = carrierId ? await prisma.carrier.findUnique({ where: { id: carrierId }, select: { name: true } }).catch(() => null) : null;
+      const targets = [];
+      if (fullLoad.assignedTo) {
+        const u = await prisma.user.findUnique({ where: { id: fullLoad.assignedTo }, select: { email: true, firstName: true, lastName: true } }).catch(() => null);
+        if (u?.email) targets.push(u);
+      } else {
+        const admins = await prisma.user.findMany({
+          where: { organizationId: fullLoad.organizationId, role: { in: ['ADMIN','OPS_MANAGER','DISPATCHER'] }, isActive: true },
+          select: { email: true, firstName: true, lastName: true }, take: 3,
+        }).catch(() => []);
+        targets.push(...admins);
+      }
+      targets.forEach(u => {
+        sendPODUploadedEmail({
+          load: fullLoad, toEmail: u.email,
+          toName: `${u.firstName} ${u.lastName}`.trim(),
+          podType, filename: req.file.originalname,
+          carrierName: carrierRec?.name || req.user.email,
+        }).catch(() => {});
+      });
+    }
 
     res.status(201).json(pod);
   } catch (err) {
@@ -305,7 +365,7 @@ async function submitBid(req, res) {
       create: { loadId: load.id, carrierId, amount: amount ? parseFloat(amount) : null, notes: notes || null },
     });
 
-    // Also create/update a note for dispatcher visibility
+    // Note + email for dispatcher visibility
     const carrier = await prisma.carrier.findUnique({ where: { id: carrierId }, select: { name: true, mcNumber: true } });
     const label = carrier ? `${carrier.name} (MC#${carrier.mcNumber})` : req.user.email;
     const rateStr = amount ? ` at $${parseFloat(amount).toLocaleString()}` : '';
@@ -313,7 +373,33 @@ async function submitBid(req, res) {
       where: { id: bid.id },
       update: { body: `🚛 Carrier bid: ${label} submitted a rate bid${rateStr}.${notes ? ' Notes: ' + notes : ''}` },
       create: { id: bid.id, loadId: load.id, body: `🚛 Carrier bid: ${label} submitted a rate bid${rateStr}.${notes ? ' Notes: ' + notes : ''}`, authorId: req.user.id },
-    }).catch(() => {}); // note upsert is best-effort
+    }).catch(() => {});
+
+    // Email dispatcher about the new bid
+    const fullLoad = await prisma.load.findUnique({
+      where: { id: load.id },
+      select: { id: true, loadNumber: true, pickupCity: true, pickupState: true, deliveryCity: true, deliveryState: true, assignedTo: true, organizationId: true },
+    }).catch(() => null);
+    if (fullLoad && carrier) {
+      const targets = [];
+      if (fullLoad.assignedTo) {
+        const u = await prisma.user.findUnique({ where: { id: fullLoad.assignedTo }, select: { email: true, firstName: true, lastName: true } }).catch(() => null);
+        if (u?.email) targets.push(u);
+      } else {
+        const admins = await prisma.user.findMany({
+          where: { organizationId: fullLoad.organizationId, role: { in: ['ADMIN','OPS_MANAGER','DISPATCHER','CARRIER_RELATIONS'] }, isActive: true },
+          select: { email: true, firstName: true, lastName: true }, take: 3,
+        }).catch(() => []);
+        targets.push(...admins);
+      }
+      targets.forEach(u => {
+        sendNewBidEmail({
+          load: fullLoad, toEmail: u.email, toName: `${u.firstName} ${u.lastName}`.trim(),
+          carrierName: carrier.name, mcNumber: carrier.mcNumber,
+          amount: amount ? parseFloat(amount) : null, notes: notes || null,
+        }).catch(() => {});
+      });
+    }
 
     res.json(bid);
   } catch (err) {
