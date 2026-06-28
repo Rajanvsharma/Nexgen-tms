@@ -1,4 +1,7 @@
-﻿const prisma = require('../services/prisma.service');
+﻿const prisma  = require('../services/prisma.service');
+const crypto  = require('crypto');
+const bcrypt  = require('bcryptjs');
+const { sendCarrierInviteEmail } = require('../services/outbound.service');
 
 async function getCarriers(req, res) {
   try {
@@ -119,4 +122,127 @@ async function deleteCarrier(req, res) {
   }
 }
 
-module.exports = { getCarriers, getCarrier, createCarrier, updateCarrier, deleteCarrier, addLane };
+// Invite existing carrier to portal
+async function inviteCarrier(req, res) {
+  try {
+    const { firstName, lastName, email } = req.body;
+    if (!email || !firstName) return res.status(400).json({ message: 'First name and email are required' });
+
+    const carrier = await prisma.carrier.findFirst({ where: { id: req.params.id, organizationId: req.user.organizationId } });
+    if (!carrier) return res.status(404).json({ message: 'Carrier not found' });
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return res.status(409).json({ message: 'An account with this email already exists' });
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+
+    const portalUser = await prisma.user.create({
+      data: {
+        organizationId: req.user.organizationId,
+        email,
+        password: randomPw,
+        firstName,
+        lastName: lastName || '',
+        role: 'CARRIER',
+        isActive: true,
+        carrierId: carrier.id,
+        resetToken: hashedToken,
+        resetTokenExpiry: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      },
+    });
+
+    const inviteUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
+    const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true } });
+    const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : 'NexGen TMS';
+
+    await sendCarrierInviteEmail({ toEmail: email, firstName, companyName: carrier.name, inviteUrl, invitedBy });
+
+    res.status(201).json({
+      portalUserId: portalUser.id,
+      carrierId: carrier.id,
+      inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
+      emailSent: !!process.env.RESEND_API_KEY,
+    });
+  } catch (err) {
+    console.error('inviteCarrier error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+// Invite new carrier (create carrier + portal user together)
+async function inviteNewCarrier(req, res) {
+  try {
+    const orgId = req.user.organizationId;
+    const {
+      companyName, mcNumber, dotNumber, companyEmail, companyPhone,
+      companyAddress, companyCity, companyState, companyZip,
+      equipmentTypes,
+      contactFirstName, contactLastName, contactEmail,
+    } = req.body;
+
+    if (!companyName) return res.status(400).json({ message: 'Company name is required' });
+    if (!mcNumber)    return res.status(400).json({ message: 'MC Number is required' });
+    if (!contactEmail || !contactFirstName) return res.status(400).json({ message: 'Contact first name and email are required' });
+
+    const emailInUse = await prisma.user.findUnique({ where: { email: contactEmail } });
+    if (emailInUse) return res.status(409).json({ message: 'An account with this email already exists' });
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const randomPw = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+
+    const { carrier, portalUser } = await prisma.$transaction(async (tx) => {
+      const carrier = await tx.carrier.create({
+        data: {
+          organizationId: orgId,
+          name: companyName,
+          mcNumber,
+          dotNumber: dotNumber || null,
+          email: companyEmail || null,
+          phone: companyPhone || null,
+          address: companyAddress || null,
+          city: companyCity || null,
+          state: companyState || null,
+          zipCode: companyZip || null,
+          equipmentTypes: equipmentTypes || [],
+        },
+      });
+      const portalUser = await tx.user.create({
+        data: {
+          organizationId: orgId,
+          email: contactEmail,
+          password: randomPw,
+          firstName: contactFirstName,
+          lastName: contactLastName || '',
+          role: 'CARRIER',
+          isActive: true,
+          carrierId: carrier.id,
+          resetToken: hashedToken,
+          resetTokenExpiry: new Date(Date.now() + 72 * 60 * 60 * 1000),
+        },
+      });
+      return { carrier, portalUser };
+    });
+
+    const inviteUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
+    const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true } });
+    const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : 'NexGen TMS';
+
+    await sendCarrierInviteEmail({ toEmail: contactEmail, firstName: contactFirstName, companyName, inviteUrl, invitedBy });
+
+    res.status(201).json({
+      carrierId: carrier.id,
+      portalUserId: portalUser.id,
+      inviteUrl: !process.env.RESEND_API_KEY ? inviteUrl : null,
+      emailSent: !!process.env.RESEND_API_KEY,
+      carrierName: companyName,
+    });
+  } catch (err) {
+    console.error('inviteNewCarrier error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+module.exports = { getCarriers, getCarrier, createCarrier, updateCarrier, deleteCarrier, addLane, inviteCarrier, inviteNewCarrier };

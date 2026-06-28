@@ -145,4 +145,22 @@ async function sendShipperInviteEmail({ toEmail, firstName, companyName, inviteU
   });
 }
 
-module.exports = { sendInvoiceEmail, sendRateConfirmationEmail, sendLoadStatusUpdate, sendPasswordResetEmail, sendUserInviteEmail, sendShipperInviteEmail };
+async function sendCarrierInviteEmail({ toEmail, firstName, companyName, inviteUrl, invitedBy }) {
+  return sendMail({
+    to: toEmail,
+    subject: `${companyName} — Carrier Portal Access`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px">
+        <h2 style="color:#1e40af">Carrier Portal Access</h2>
+        <p>Hi ${firstName || 'there'},</p>
+        <p><strong>${invitedBy}</strong> has set up a carrier portal account for <strong>${companyName}</strong>.</p>
+        <p>You can view assigned loads, download rate confirmations, submit PODs, and manage your company details — all in one place.</p>
+        <p>Click below to set your password and get started. This link expires in <strong>72 hours</strong>.</p>
+        <p><a href="${inviteUrl}" style="background:#0d9488;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:600">Access Carrier Portal</a></p>
+        <p style="color:#6b7280;font-size:12px">Questions? Reply to this email.</p>
+        <p style="color:#6b7280;font-size:12px">NexGen TMS · Move Smarter. Deliver Better.</p>
+      </div>`,
+  });
+}
+
+module.exports = { sendInvoiceEmail, sendRateConfirmationEmail, sendLoadStatusUpdate, sendPasswordResetEmail, sendUserInviteEmail, sendShipperInviteEmail, sendCarrierInviteEmail };

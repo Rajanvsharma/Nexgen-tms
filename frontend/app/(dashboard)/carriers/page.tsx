@@ -64,6 +64,18 @@ export default function CarriersPage() {
   const [saving, setSaving] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Carrier | null>(null);
+
+  // Invite carrier portal state
+  const [inviteModal, setInviteModal]   = useState(false);
+  const [inviteCarrierId, setInviteCarrierId] = useState<string|null>(null); // null = new carrier
+  const [inviteForm, setInviteForm]     = useState({
+    companyName:'', mcNumber:'', dotNumber:'', companyEmail:'', companyPhone:'',
+    companyAddress:'', companyCity:'', companyState:'', companyZip:'',
+    contactFirstName:'', contactLastName:'', contactEmail:'',
+  });
+  const [inviteSaving, setInviteSaving] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ inviteUrl?:string; carrierName?:string; emailSent?:boolean }|null>(null);
+
   const [safetyTarget, setSafetyTarget] = useState<Carrier | null>(null);
   const [safetyData, setSafetyData] = useState<Record<string, unknown> | null>(null);
   const [safetyLoading, setSafetyLoading] = useState(false);
@@ -183,6 +195,9 @@ export default function CarriersPage() {
             <option value="ALL">All Equipment</option>
             {EQUIPMENT_OPTIONS.map(e => <option key={e}>{e}</option>)}
           </select>
+          <button onClick={() => { setInviteCarrierId(null); setInviteForm({ companyName:'',mcNumber:'',dotNumber:'',companyEmail:'',companyPhone:'',companyAddress:'',companyCity:'',companyState:'',companyZip:'',contactFirstName:'',contactLastName:'',contactEmail:'' }); setInviteResult(null); setInviteModal(true); }} style={{ padding:'9px 18px', background:'#f59e0b', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            ✉️ Invite Carrier
+          </button>
           <button onClick={openCreate} style={{ padding: '9px 18px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             + Add Carrier
           </button>
@@ -268,6 +283,7 @@ export default function CarriersPage() {
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button onClick={() => openEdit(c)} style={{ padding: '5px 10px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#475569', fontWeight: 600 }}>✏ Edit</button>
                           <button onClick={() => runSafetyCheck(c)} style={{ padding: '5px 10px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#1d4ed8', fontWeight: 600 }}>🛡 FMCSA</button>
+                          <button onClick={() => { setInviteCarrierId(c.id); setInviteForm(f=>({...f,companyName:c.name,mcNumber:c.mcNumber,dotNumber:c.dotNumber||'',companyEmail:c.email||'',companyPhone:c.phone||''})); setInviteResult(null); setInviteModal(true); }} style={{ padding:'5px 10px', background:'#fef3c7', border:'1px solid #fde68a', borderRadius:6, fontSize:12, cursor:'pointer', color:'#d97706', fontWeight:600 }}>✉ Portal</button>
                           {c._count.loads === 0 && (
                             <button onClick={() => setDeleteTarget(c)} style={{ padding: '5px 8px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#dc2626', fontWeight: 700 }}>✕</button>
                           )}
@@ -437,6 +453,79 @@ export default function CarriersPage() {
           </div>
         </div>
       )}
+
+      {/* ── Invite Carrier Modal ── */}
+      {inviteModal && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }} onClick={()=>setInviteModal(false)}>
+          <div style={{ background:'#fff',borderRadius:16,padding:28,width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 64px rgba(0,0,0,0.2)' }} onClick={e=>e.stopPropagation()}>
+            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
+              <h3 style={{ fontWeight:800,fontSize:18,color:'#0f172a',margin:0 }}>✉️ Invite Carrier to Portal</h3>
+              <button onClick={()=>setInviteModal(false)} style={{ background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#94a3b8' }}>✕</button>
+            </div>
+
+            {inviteResult ? (
+              <div style={{ textAlign:'center', padding:'16px 0' }}>
+                <div style={{ fontSize:48, marginBottom:14 }}>🎉</div>
+                <div style={{ fontWeight:800, fontSize:18, color:'#0f172a', marginBottom:8 }}>Invite Sent!</div>
+                <div style={{ color:'#64748b', fontSize:13, marginBottom:16 }}>{inviteResult.carrierName} has been invited to the carrier portal.</div>
+                {inviteResult.emailSent && <div style={{ color:'#22c55e', fontSize:13, marginBottom:16 }}>✓ Invite email sent</div>}
+                {inviteResult.inviteUrl && (
+                  <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, padding:16, marginBottom:16 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'#374151', marginBottom:8 }}>Share this link with the carrier:</div>
+                    <code style={{ fontSize:11, color:'#475569', wordBreak:'break-all' }}>{inviteResult.inviteUrl}</code>
+                    <button onClick={()=>navigator.clipboard.writeText(inviteResult.inviteUrl!)} style={{ display:'block', margin:'10px auto 0', padding:'6px 16px', background:'#0f172a', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>Copy Link</button>
+                  </div>
+                )}
+                <button onClick={()=>{ setInviteModal(false); setInviteResult(null); }} style={{ padding:'9px 24px', background:'#0f172a', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>Done</button>
+              </div>
+            ) : (
+              <>
+                {!inviteCarrierId && (
+                  <>
+                    <div style={{ fontWeight:700, fontSize:13, color:'#0f172a', marginBottom:12 }}>Company Details</div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+                      <div style={{ gridColumn:'1/-1' }}><CF label="Company Name"><input style={CI} value={inviteForm.companyName} onChange={e=>setInviteForm(f=>({...f,companyName:e.target.value}))} placeholder="ABC Trucking LLC" /></CF></div>
+                      <CF label="MC Number"><input style={CI} value={inviteForm.mcNumber} onChange={e=>setInviteForm(f=>({...f,mcNumber:e.target.value}))} placeholder="MC123456" /></CF>
+                      <CF label="DOT Number"><input style={CI} value={inviteForm.dotNumber} onChange={e=>setInviteForm(f=>({...f,dotNumber:e.target.value}))} placeholder="Optional" /></CF>
+                      <CF label="Company Email"><input style={CI} value={inviteForm.companyEmail} onChange={e=>setInviteForm(f=>({...f,companyEmail:e.target.value}))} placeholder="dispatch@abc.com" /></CF>
+                      <CF label="Company Phone"><input style={CI} value={inviteForm.companyPhone} onChange={e=>setInviteForm(f=>({...f,companyPhone:e.target.value}))} placeholder="(555) 000-0000" /></CF>
+                    </div>
+                    <div style={{ borderTop:'1px solid #f1f5f9', margin:'16px 0' }} />
+                  </>
+                )}
+
+                <div style={{ fontWeight:700, fontSize:13, color:'#0f172a', marginBottom:12 }}>Portal Contact (Login Account)</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+                  <CF label="First Name"><input style={CI} value={inviteForm.contactFirstName} onChange={e=>setInviteForm(f=>({...f,contactFirstName:e.target.value}))} placeholder="John" /></CF>
+                  <CF label="Last Name"><input style={CI} value={inviteForm.contactLastName} onChange={e=>setInviteForm(f=>({...f,contactLastName:e.target.value}))} placeholder="Smith" /></CF>
+                  <div style={{ gridColumn:'1/-1' }}><CF label="Login Email"><input style={CI} value={inviteForm.contactEmail} onChange={e=>setInviteForm(f=>({...f,contactEmail:e.target.value}))} placeholder="john@abc.com" /></CF></div>
+                </div>
+
+                <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+                  <button onClick={()=>setInviteModal(false)} style={{ padding:'9px 20px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', color:'#475569' }}>Cancel</button>
+                  <button disabled={inviteSaving} onClick={async()=>{
+                    if (!inviteForm.contactEmail || !inviteForm.contactFirstName) { toast.error('Contact first name and email are required'); return; }
+                    if (!inviteCarrierId && !inviteForm.companyName) { toast.error('Company name is required'); return; }
+                    if (!inviteCarrierId && !inviteForm.mcNumber) { toast.error('MC Number is required'); return; }
+                    setInviteSaving(true);
+                    try {
+                      const url = inviteCarrierId ? `/carriers/${inviteCarrierId}/invite` : '/carriers/invite-new';
+                      const { data } = await api.post(url, inviteCarrierId ? { firstName:inviteForm.contactFirstName, lastName:inviteForm.contactLastName, email:inviteForm.contactEmail } : inviteForm);
+                      setInviteResult(data);
+                      loadData();
+                    } catch(e:unknown) {
+                      toast.error('Invite failed', (e as {response?:{data?:{message?:string}}})?.response?.data?.message ?? 'Error');
+                    } finally { setInviteSaving(false); }
+                  }} style={{ padding:'9px 22px', background:'#f59e0b', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:inviteSaving?'not-allowed':'pointer', opacity:inviteSaving?0.7:1 }}>
+                    {inviteSaving ? 'Sending…' : 'Send Invite'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
