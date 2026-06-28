@@ -9,7 +9,12 @@ async function getCarriers(req, res) {
     const carriers = await prisma.carrier.findMany({
       where: { organizationId: orgId },
       orderBy: { name: 'asc' },
-      include: { _count: { select: { loads: true, lanes: true } } },
+      include: {
+        _count: { select: { loads: true, lanes: true } },
+        portalUsers: {
+          select: { id: true, firstName: true, lastName: true, email: true, resetToken: true, createdAt: true },
+        },
+      },
     });
     res.json(carriers);
   } catch (err) {

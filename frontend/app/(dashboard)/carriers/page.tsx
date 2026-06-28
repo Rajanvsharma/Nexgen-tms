@@ -8,6 +8,7 @@ import { toast } from '@/store/toast.store';
 import { useBrandingStore } from '@/store/branding.store';
 import api from '@/lib/api';
 
+interface PortalUser { id:string; firstName:string; lastName:string; email:string; resetToken:string|null; createdAt:string; }
 interface Carrier {
   id: string; name: string; mcNumber: string; dotNumber: string | null;
   email: string | null; phone: string | null; city: string | null; state: string | null;
@@ -15,6 +16,7 @@ interface Carrier {
   insuranceExpiry: string | null; authorityExpiry: string | null;
   w9OnFile: boolean; status: string; notes: string | null;
   _count: { loads: number; lanes: number };
+  portalUsers: PortalUser[];
 }
 
 const EQUIPMENT_OPTIONS = ['Dry Van','Reefer','Flatbed','Step Deck','RGN','Power Only','Box Truck','Sprinter'];
@@ -68,6 +70,7 @@ export default function CarriersPage() {
   // Invite carrier portal state
   const [inviteModal, setInviteModal]   = useState(false);
   const [inviteCarrierId, setInviteCarrierId] = useState<string|null>(null); // null = new carrier
+  const [inviteCarrierRef, setInviteCarrierRef] = useState<Carrier|null>(null);
   const [inviteForm, setInviteForm]     = useState({
     companyName:'', mcNumber:'', dotNumber:'', companyEmail:'', companyPhone:'',
     companyAddress:'', companyCity:'', companyState:'', companyZip:'',
@@ -283,7 +286,9 @@ export default function CarriersPage() {
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button onClick={() => openEdit(c)} style={{ padding: '5px 10px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#475569', fontWeight: 600 }}>✏ Edit</button>
                           <button onClick={() => runSafetyCheck(c)} style={{ padding: '5px 10px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#1d4ed8', fontWeight: 600 }}>🛡 FMCSA</button>
-                          <button onClick={() => { setInviteCarrierId(c.id); setInviteForm(f=>({...f,companyName:c.name,mcNumber:c.mcNumber,dotNumber:c.dotNumber||'',companyEmail:c.email||'',companyPhone:c.phone||''})); setInviteResult(null); setInviteModal(true); }} style={{ padding:'5px 10px', background:'#fef3c7', border:'1px solid #fde68a', borderRadius:6, fontSize:12, cursor:'pointer', color:'#d97706', fontWeight:600 }}>✉ Portal</button>
+                          <button onClick={() => { setInviteCarrierId(c.id); setInviteCarrierRef(c); setInviteForm(f=>({...f,companyName:c.name,mcNumber:c.mcNumber,dotNumber:c.dotNumber||'',companyEmail:c.email||'',companyPhone:c.phone||'',contactFirstName:'',contactLastName:'',contactEmail:''})); setInviteResult(null); setInviteModal(true); }} style={{ padding:'5px 10px', background: c.portalUsers.length > 0 ? '#f0fdf4' : '#fef3c7', border:`1px solid ${c.portalUsers.length > 0 ? '#86efac' : '#fde68a'}`, borderRadius:6, fontSize:12, cursor:'pointer', color: c.portalUsers.length > 0 ? '#15803d' : '#d97706', fontWeight:600 }}>
+                            {c.portalUsers.length > 0 ? `✓ Portal (${c.portalUsers.length})` : '✉ Portal'}
+                          </button>
                           {c._count.loads === 0 && (
                             <button onClick={() => setDeleteTarget(c)} style={{ padding: '5px 8px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#dc2626', fontWeight: 700 }}>✕</button>
                           )}
@@ -462,6 +467,30 @@ export default function CarriersPage() {
               <h3 style={{ fontWeight:800,fontSize:18,color:'#0f172a',margin:0 }}>✉️ Invite Carrier to Portal</h3>
               <button onClick={()=>setInviteModal(false)} style={{ background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#94a3b8' }}>✕</button>
             </div>
+
+            {/* Existing portal users */}
+            {!inviteResult && inviteCarrierRef && inviteCarrierRef.portalUsers.length > 0 && (
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontWeight:700, fontSize:13, color:'#0f172a', marginBottom:10 }}>✅ Portal Access — Existing Users</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {inviteCarrierRef.portalUsers.map(u => (
+                    <div key={u.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:9 }}>
+                      <div>
+                        <div style={{ fontWeight:600, fontSize:13, color:'#0f172a' }}>{u.firstName} {u.lastName}</div>
+                        <div style={{ fontSize:11, color:'#64748b' }}>{u.email}</div>
+                        <div style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>Invited {new Date(u.createdAt).toLocaleDateString()}</div>
+                      </div>
+                      <span style={{ padding:'3px 9px', borderRadius:9999, fontSize:11, fontWeight:700, background: u.resetToken ? '#fef9c3' : '#f0fdf4', color: u.resetToken ? '#92400e' : '#15803d' }}>
+                        {u.resetToken ? '⏳ Pending' : '✓ Active'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ borderTop:'1px solid #f1f5f9', margin:'16px 0' }} />
+                <div style={{ fontWeight:700, fontSize:13, color:'#0f172a', marginBottom:4 }}>Add another portal user</div>
+                <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>You can invite additional contacts from this carrier.</div>
+              </div>
+            )}
 
             {inviteResult ? (
               <div style={{ textAlign:'center', padding:'16px 0' }}>
