@@ -1,4 +1,3 @@
-'use server';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Hostnames that belong to our default deployment — skip tenant resolution
