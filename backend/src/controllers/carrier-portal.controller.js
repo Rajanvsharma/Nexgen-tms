@@ -17,10 +17,21 @@ async function resolveCarrierId(user) {
 async function getCarrierMe(req, res) {
   try {
     const carrierId = await resolveCarrierId(req.user);
-    const user = await prisma.user.findUnique({
+
+    // Fetch user — phone may not exist in DB yet if migration is pending
+    let user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, createdAt: true },
+      select: { id: true, firstName: true, lastName: true, email: true, createdAt: true },
     });
+    // Attempt to include phone once migration is applied
+    try {
+      const withPhone = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { phone: true },
+      });
+      if (withPhone) user = { ...user, phone: withPhone.phone };
+    } catch { /* phone column not yet migrated — skip */ }
+
     const carrier = carrierId ? await prisma.carrier.findUnique({
       where: { id: carrierId },
       select: {
@@ -40,10 +51,13 @@ async function getCarrierMe(req, res) {
 async function updateCarrierMe(req, res) {
   try {
     const { firstName, lastName, phone } = req.body;
-    await prisma.user.update({
-      where: { id: req.user.id },
-      data: { firstName, lastName, phone: phone || null },
-    });
+    const data = { firstName, lastName };
+    // Only include phone once the migration has been applied
+    try {
+      await prisma.user.findUnique({ where: { id: req.user.id }, select: { phone: true } });
+      data.phone = phone || null;
+    } catch { /* phone column not yet available */ }
+    await prisma.user.update({ where: { id: req.user.id }, data });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
