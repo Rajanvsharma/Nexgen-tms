@@ -120,6 +120,76 @@ async function saveAiConfig(req, res) {
   }
 }
 
+// ── Custom Domain Management ──────────────────────────────────────────────────
+
+async function getCustomDomains(req, res) {
+  try {
+    const org = await prisma.organization.findUnique({
+      where: { id: req.user.organizationId },
+      select: { customDomain: true, carrierDomain: true },
+    });
+    res.json(org || { customDomain: null, carrierDomain: null });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+async function setCustomDomains(req, res) {
+  try {
+    const { customDomain, carrierDomain } = req.body;
+
+    // Validate they don't belong to another org
+    if (customDomain) {
+      const taken = await prisma.organization.findFirst({
+        where: { customDomain, NOT: { id: req.user.organizationId } },
+      });
+      if (taken) return res.status(409).json({ message: `${customDomain} is already in use by another account` });
+    }
+    if (carrierDomain) {
+      const taken = await prisma.organization.findFirst({
+        where: { carrierDomain, NOT: { id: req.user.organizationId } },
+      });
+      if (taken) return res.status(409).json({ message: `${carrierDomain} is already in use by another account` });
+    }
+
+    const org = await prisma.organization.update({
+      where: { id: req.user.organizationId },
+      data: {
+        customDomain:  customDomain  ? customDomain.toLowerCase().trim()  : null,
+        carrierDomain: carrierDomain ? carrierDomain.toLowerCase().trim() : null,
+      },
+      select: { customDomain: true, carrierDomain: true },
+    });
+    res.json({ message: 'Custom domains saved', ...org });
+  } catch (err) {
+    console.error('setCustomDomains error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+// Public: resolve any hostname → org + portal type (no auth required)
+async function resolveTenantByDomain(req, res) {
+  try {
+    const domain = (req.query.domain || '').toLowerCase().trim();
+    if (!domain) return res.status(400).json({ message: 'domain is required' });
+
+    const org = await prisma.organization.findFirst({
+      where: { OR: [{ customDomain: domain }, { carrierDomain: domain }] },
+      select: { id: true, name: true, slug: true, customDomain: true, carrierDomain: true },
+    });
+    if (!org) return res.status(404).json({ message: 'Domain not registered' });
+
+    res.json({
+      organizationId: org.id,
+      name: org.name,
+      slug: org.slug,
+      portalType: org.customDomain === domain ? 'tms' : 'carrier',
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
 async function getDecryptedAiKey(orgId) {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
@@ -133,4 +203,4 @@ async function getDecryptedAiKey(orgId) {
   };
 }
 
-module.exports = { getOrganization, updateOrganization, getMembers, getAiConfig, saveAiConfig, getDecryptedAiKey };
+module.exports = { getOrganization, updateOrganization, getMembers, getAiConfig, saveAiConfig, getDecryptedAiKey, getCustomDomains, setCustomDomains, resolveTenantByDomain };

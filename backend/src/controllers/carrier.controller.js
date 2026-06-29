@@ -140,7 +140,14 @@ async function inviteCarrier(req, res) {
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const inviteUrl = `${process.env.FRONTEND_URL || 'https://nexgentms.vercel.app'}/reset-password?token=${rawToken}`;
+
+    // Use org's custom carrier domain if configured, else fallback to default
+    const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId }, select: { carrierDomain: true } });
+    const portalBase = org?.carrierDomain
+      ? `https://${org.carrierDomain}`
+      : (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app');
+    const inviteUrl = `${portalBase}/reset-password?token=${rawToken}`;
+
     const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, select: { firstName: true, lastName: true } });
     const invitedBy = inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : 'NexGen TMS';
 

@@ -6,7 +6,7 @@ import { useBrandingStore, type BrandingConfig } from '@/store/branding.store';
 import { ALL_CLOCKS, loadClockPrefs, saveClockPrefs } from '@/lib/world-clocks';
 import api from '@/lib/api';
 
-type Tab = 'general' | 'brokerage' | 'profile' | 'ai-agent' | 'notifications' | 'integrations' | 'telephony' | 'security' | 'billing' | 'email' | 'api' | 'system';
+type Tab = 'general' | 'brokerage' | 'profile' | 'ai-agent' | 'notifications' | 'integrations' | 'telephony' | 'security' | 'billing' | 'email' | 'api' | 'system' | 'domains';
 
 // Tiny SVG icon helper
 function SI({ d, size = 16 }: { d: string; size?: number }) {
@@ -30,6 +30,7 @@ const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: 'email',         label: 'Email (IMAP)',   icon: <SI d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6" /> },
   { id: 'api',           label: 'API Keys',       icon: <SI d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" /> },
   { id: 'system',        label: 'System',         icon: <SI d="M12 15a3 3 0 100-6 3 3 0 000 6zm6.93-3a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /> },
+  { id: 'domains',       label: 'Custom Domain',  icon: <SI d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9" /> },
 ];
 
 // ── default notification prefs ────────────────────────────────────────────────
@@ -90,6 +91,7 @@ export default function SettingsPage() {
         {tab === 'email'         && <EmailTab primary={primary} />}
         {tab === 'api'           && <ApiTab primary={primary} />}
         {tab === 'system'        && <SystemTab primary={primary} branding={branding} />}
+        {tab === 'domains'       && <CustomDomainTab primary={primary} />}
       </div>
     </div>
   );
@@ -1519,6 +1521,135 @@ function SecurityTab({ primary }: { primary: string }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Custom Domain Tab ─────────────────────────────────────────────────────────
+function CustomDomainTab({ primary }: { primary: string }) {
+  const [tmsDomain,     setTmsDomain]     = useState('');
+  const [carrierDomain, setCarrierDomain] = useState('');
+  const [saving,        setSaving]        = useState(false);
+  const [msg,           setMsg]           = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    api.get('/organization/domains').then(r => {
+      setTmsDomain(r.data.customDomain || '');
+      setCarrierDomain(r.data.carrierDomain || '');
+    }).catch(() => {});
+  }, []);
+
+  async function save() {
+    setSaving(true); setMsg(null);
+    try {
+      await api.put('/organization/domains', { customDomain: tmsDomain.trim() || null, carrierDomain: carrierDomain.trim() || null });
+      setMsg({ type: 'success', text: 'Custom domains saved. Point your DNS CNAME records as shown below.' });
+    } catch (e: unknown) {
+      const m = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setMsg({ type: 'error', text: m || 'Failed to save' });
+    } finally { setSaving(false); }
+  }
+
+  const inp: CSSProperties = { width: '100%', height: 40, padding: '0 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' };
+  const card: CSSProperties = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, marginBottom: 20 };
+  const label: CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6, letterSpacing: '0.04em', textTransform: 'uppercase' };
+  const hint: CSSProperties = { fontSize: 12, color: '#94a3b8', marginTop: 6 };
+
+  const vercelTarget = 'cname.vercel-dns.com';
+
+  return (
+    <div style={{ maxWidth: 700 }}>
+      <div style={{ marginBottom: 28 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: 0 }}>Custom Domain</h2>
+        <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+          Give each customer their own branded URL. Enterprise tier only.
+        </p>
+      </div>
+
+      {/* Plan badge */}
+      <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 16px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+        <span style={{ fontSize: 18 }}>⭐</span>
+        <span><strong>Enterprise feature.</strong> Custom domains require a purchased domain and DNS access. Each organization you onboard can have their own <code>tms.theirdomain.com</code> and <code>carrier.theirdomain.com</code>.</span>
+      </div>
+
+      {/* Domain inputs */}
+      <div style={card}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '0 0 20px' }}>Domain Configuration</h3>
+        <div style={{ marginBottom: 20 }}>
+          <label style={label}>Main TMS Domain</label>
+          <input style={inp} value={tmsDomain} onChange={e => setTmsDomain(e.target.value)} placeholder="tms.acmelogistics.com" />
+          <p style={hint}>Your customers log into the full TMS at this address.</p>
+        </div>
+        <div style={{ marginBottom: 24 }}>
+          <label style={label}>Carrier Portal Domain</label>
+          <input style={inp} value={carrierDomain} onChange={e => setCarrierDomain(e.target.value)} placeholder="carrier.acmelogistics.com" />
+          <p style={hint}>Carriers log in to view loads, submit bids, and upload PODs at this address.</p>
+        </div>
+
+        {msg && (
+          <div style={{ background: msg.type === 'success' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${msg.type === 'success' ? '#bbf7d0' : '#fecaca'}`, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: msg.type === 'success' ? '#15803d' : '#dc2626', marginBottom: 16 }}>
+            {msg.text}
+          </div>
+        )}
+
+        <button onClick={save} disabled={saving}
+          style={{ padding: '9px 22px', background: primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+          {saving ? 'Saving…' : 'Save Domains'}
+        </button>
+      </div>
+
+      {/* DNS Instructions */}
+      <div style={card}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '0 0 16px' }}>DNS Setup Instructions</h3>
+        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
+          Add these CNAME records in your customer's DNS provider (Cloudflare, GoDaddy, Route 53, etc.):
+        </p>
+        <div style={{ background: '#0f172a', borderRadius: 10, padding: '16px 20px', fontFamily: 'monospace', fontSize: 13, color: '#e2e8f0', marginBottom: 16 }}>
+          <div style={{ color: '#94a3b8', marginBottom: 8 }}># Add these CNAME records in the customer's DNS:</div>
+          {tmsDomain && (
+            <div style={{ marginBottom: 6 }}>
+              <span style={{ color: '#fbbf24' }}>{tmsDomain}</span>
+              <span style={{ color: '#64748b' }}> → CNAME → </span>
+              <span style={{ color: '#86efac' }}>{vercelTarget}</span>
+            </div>
+          )}
+          {carrierDomain && (
+            <div>
+              <span style={{ color: '#fbbf24' }}>{carrierDomain}</span>
+              <span style={{ color: '#64748b' }}> → CNAME → </span>
+              <span style={{ color: '#86efac' }}>{vercelTarget}</span>
+            </div>
+          )}
+          {!tmsDomain && !carrierDomain && (
+            <div style={{ color: '#64748b' }}>Enter your domains above to see the DNS records.</div>
+          )}
+        </div>
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>
+          After saving the domains and adding DNS records, add both hostnames to your Vercel project under <strong>Project → Settings → Domains</strong>. DNS propagation typically takes 5–30 minutes.
+        </div>
+      </div>
+
+      {/* How it works */}
+      <div style={card}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '0 0 16px' }}>How It Works</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {[
+            { step: '1', title: 'Customer buys domain', desc: 'e.g. acmelogistics.com from GoDaddy, Namecheap, etc.' },
+            { step: '2', title: 'You enter the subdomains above', desc: 'tms.acmelogistics.com for TMS, carrier.acmelogistics.com for the carrier portal.' },
+            { step: '3', title: 'Customer adds CNAME in their DNS', desc: `Both records point to ${vercelTarget}` },
+            { step: '4', title: 'Add domains in Vercel', desc: 'Vercel → your project → Settings → Domains → add both hostnames.' },
+            { step: '5', title: 'Done', desc: 'The platform automatically routes each domain to the correct portal for that organization.' },
+          ].map(s => (
+            <div key={s.step} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 9999, background: `${primary}20`, color: primary, fontWeight: 800, fontSize: 13, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{s.step}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{s.title}</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

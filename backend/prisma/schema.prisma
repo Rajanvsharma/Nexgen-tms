@@ -114,6 +114,8 @@ model Organization {
   aiProvider           String?   @default("anthropic")
   aiApiKey             String?
   aiModel              String?
+  customDomain         String?   @unique
+  carrierDomain        String?   @unique
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

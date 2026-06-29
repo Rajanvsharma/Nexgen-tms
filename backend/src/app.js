@@ -53,13 +53,36 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 
 const allowedOrigins = (process.env.FRONTEND_URL || 'https://nexgentms.vercel.app').split(',').map(o => o.trim().replace(/\/$/, ''));
+
+// In-memory cache for registered custom domains (TTL: 5 min)
+let _domainCache = new Set();
+let _domainCacheAt = 0;
+async function isRegisteredDomain(hostname) {
+  const now = Date.now();
+  if (now - _domainCacheAt > 5 * 60 * 1000) {
+    try {
+      const prisma = require('./services/prisma.service');
+      const orgs = await prisma.organization.findMany({
+        where: { OR: [{ customDomain: { not: null } }, { carrierDomain: { not: null } }] },
+        select: { customDomain: true, carrierDomain: true },
+      });
+      _domainCache = new Set(orgs.flatMap(o => [o.customDomain, o.carrierDomain].filter(Boolean)));
+      _domainCacheAt = now;
+    } catch { return false; }
+  }
+  return _domainCache.has(hostname);
+}
+
 app.use(cors({
-  origin: (origin, cb) => {
+  origin: async (origin, cb) => {
     if (!origin) return cb(null, true);
-    // Allow any Vercel deployment (production + previews) and explicitly listed origins
     if (/\.vercel\.app$/.test(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin) || allowedOrigins.includes(origin)) {
       return cb(null, true);
     }
+    try {
+      const hostname = new URL(origin).hostname;
+      if (await isRegisteredDomain(hostname)) return cb(null, true);
+    } catch {}
     cb(new Error('CORS: origin not allowed'));
   },
   credentials: true,
