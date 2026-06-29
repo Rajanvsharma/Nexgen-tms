@@ -18,7 +18,7 @@ interface Load {
   trackingLat:number|null; trackingLng:number|null; trackingUpdatedAt:string|null;
   customer:{ name:string; phone:string|null; email:string|null }|null;
   stops:Stop[]; documents:Document[]; pods:Pod[];
-  invoice:{ id:string; status:string; totalAmount:number; dueDate:string|null; paidAt:string|null }|null;
+  invoice:{ id:string; status:string; amount:number; dueDate:string|null; paidDate:string|null }|null;
   payment:{ id:string; status:string; amount:number; dueDate:string|null; paidDate:string|null; notes:string|null }|null;
   auditLog:AuditEntry[];
   createdAt:string;
