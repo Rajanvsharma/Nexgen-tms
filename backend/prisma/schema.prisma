@@ -146,6 +146,7 @@ model User {
   isActive          Boolean            @default(true)
   resetToken        String?
   resetTokenExpiry  DateTime?
+  phone             String?
   totpSecret        String?
   totpEnabled       Boolean            @default(false)
   createdAt         DateTime           @default(now())
